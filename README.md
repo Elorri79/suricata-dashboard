@@ -176,6 +176,22 @@ suricata-dashboard/
 └── README.md              # This file
 ```
 
+## Screenshots
+
+### Dashboard Overview
+![Dashboard Overview](screenshot1.png)
+
+### Alert Details
+![Alert Details](screenshot2.png)
+
+## Credits
+
+This project was developed using:
+- **OpenCode** - AI-powered development assistant
+- **MiniMax 2.5** - Language model
+- **GLM 5** - Language model
+- **Warp** - Agentic Development Environment
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
