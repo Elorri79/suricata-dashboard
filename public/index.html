@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SURICATA // IDS COMMAND</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◈</text></svg>">
+</head>
+<body>
+  <!-- Background Grid Animation -->
+  <div class="grid-scan"></div>
+
+  <div class="dashboard">
+    <!-- Header - Command Deck -->
+    <header class="header">
+      <div class="header-left">
+        <h1>◈ SURICATA IDS</h1>
+        <span class="status-indicator">
+          <span class="pulse"></span>
+          <span id="connection-status">ONLINE</span>
+        </span>
+      </div>
+      <div class="header-right">
+        <span class="time" id="current-time">--:--:--</span>
+        <span class="aps-indicator" id="aps-value">0</span>
+        <span class="aps-label">APS</span>
+        <button class="btn" onclick="resetMetrics()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+            <path d="M3 3v5h5"/>
+          </svg>
+          RESET_SYS
+        </button>
+      </div>
+    </header>
+
+    <!-- Stats Grid - Module Display -->
+    <section class="stats-grid">
+      <div class="stat-card total">
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+            <path d="M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <div class="stat-content">
+          <span class="stat-value" id="total-alerts">0</span>
+          <span class="stat-label">Total Events</span>
+        </div>
+      </div>
+
+      <div class="stat-card critical">
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+        </div>
+        <div class="stat-content">
+          <span class="stat-value" id="critical-count">0</span>
+          <span class="stat-label">Critical</span>
+        </div>
+      </div>
+
+      <div class="stat-card high">
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+          </svg>
+        </div>
+        <div class="stat-content">
+          <span class="stat-value" id="high-count">0</span>
+          <span class="stat-label">High</span>
+        </div>
+      </div>
+
+      <div class="stat-card medium">
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="12" x2="16" y2="12"/>
+          </svg>
+        </div>
+        <div class="stat-content">
+          <span class="stat-value" id="medium-count">0</span>
+          <span class="stat-label">Medium</span>
+        </div>
+      </div>
+
+      <div class="stat-card low">
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+        </div>
+        <div class="stat-content">
+          <span class="stat-value" id="low-count">0</span>
+          <span class="stat-label">Low</span>
+        </div>
+      </div>
+
+      <div class="stat-card info">
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+        </div>
+        <div class="stat-content">
+          <span class="stat-value" id="info-count">0</span>
+          <span class="stat-label">Info</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Charts Row - Tactical Display -->
+    <section class="charts-row">
+      <!-- Android Avatar + Speech Bubble (compact) -->
+      <div class="chart-card android-panel-compact">
+        <h3>AI MONITOR</h3>
+        <div class="android-compact-layout">
+          <div class="android-avatar-section">
+            <div class="android-head large">
+              <div class="android-face" id="android-face">
+                <div class="face-expression normal active" id="face-normal">
+                  <div class="android-eye left"></div>
+                  <div class="android-eye right"></div>
+                  <div class="android-mouth normal"></div>
+                </div>
+                <div class="face-expression terror" id="face-terror">
+                  <div class="android-eye terror-eye left"></div>
+                  <div class="android-eye terror-eye right"></div>
+                  <div class="android-mouth terror"></div>
+                </div>
+                <div class="face-expression warning" id="face-warning">
+                  <div class="android-eye half closed left"></div>
+                  <div class="android-eye half closed right"></div>
+                  <div class="android-mouth neutral"></div>
+                </div>
+                <div class="face-expression happy" id="face-happy">
+                  <div class="android-eye happy-eye left"></div>
+                  <div class="android-eye happy-eye right"></div>
+                  <div class="android-mouth happy"></div>
+                </div>
+                <div class="android-antenna left"></div>
+                <div class="android-antenna right"></div>
+                <div class="android-ear left"></div>
+                <div class="android-ear right"></div>
+              </div>
+            </div>
+            <div class="android-status-mini">
+              <span class="status-dot-mini" id="android-status-dot"></span>
+              <span id="android-status-text">SYSTEM ONLINE</span>
+            </div>
+          </div>
+          <div class="speech-bubble-section">
+            <div class="speech-bubble compact">
+              <div class="speech-bubble-content" id="speech-content">
+                <div class="speech-header">>> DETECTED</div>
+                <div class="speech-body" id="speech-text">System ready...</div>
+                <div class="speech-meta" id="speech-meta">Awaiting threat data</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Threat Distribution -->
+      <div class="chart-card">
+        <h3>Threat Distribution</h3>
+        <div class="chart-container">
+          <canvas id="severity-chart"></canvas>
+        </div>
+      </div>
+
+      <!-- Protocol Distribution -->
+      <div class="chart-card">
+        <h3>Protocol Distribution</h3>
+        <div class="chart-container">
+          <canvas id="protocol-chart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Timeline Row -->
+    <section class="timeline-row">
+      <div class="chart-card full-width">
+        <h3>Activity Timeline [24H]</h3>
+        <div class="chart-container timeline-container">
+          <canvas id="timeline-chart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Bottom Row - Data Slots -->
+    <section class="bottom-row">
+      <div class="panel">
+        <div class="panel-header">
+          <h3>Top Signatures</h3>
+        </div>
+        <div class="panel-content">
+          <ul class="signature-list" id="signature-list">
+            <li class="empty-state">Initializing...</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h3>Source IPs</h3>
+        </div>
+        <div class="panel-content">
+          <ul class="ip-list" id="source-ip-list">
+            <li class="empty-state">Initializing...</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h3>Target IPs</h3>
+        </div>
+        <div class="panel-content">
+          <ul class="ip-list" id="dest-ip-list">
+            <li class="empty-state">Initializing...</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Recent Alerts - Threat Log -->
+    <section class="alerts-section">
+      <div class="panel full-width">
+        <div class="panel-header">
+          <h3>Threat Log</h3>
+          <div class="panel-actions">
+            <input type="text" class="search-input" id="alert-search" placeholder="Search database...">
+          </div>
+        </div>
+        <div class="panel-content">
+          <table class="alerts-table">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Level</th>
+                <th>Signature</th>
+                <th>Source</th>
+                <th>Port</th>
+                <th>Destination</th>
+                <th>Port</th>
+                <th>Proto</th>
+              </tr>
+            </thead>
+            <tbody id="alerts-table-body">
+              <tr class="empty-state">
+                <td colspan="8">Scanning...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer Decor -->
+    <div class="footer-decor">
+      <span>SYS_VERSION: 1.0.0</span>
+      <span>SECURE_CONNECTION: ESTABLISHED</span>
+      <span>IDS_STATUS: MONITORING</span>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/chart.min.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
