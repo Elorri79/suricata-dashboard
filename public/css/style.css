@@ -49,13 +49,14 @@
 
 html {
   height: 100%;
+  overflow: hidden;
 }
 
 body {
   font-family: 'JetBrains Mono', monospace;
   background: var(--bg-deep);
   color: var(--text-primary);
-  min-height: 100vh;
+  height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
   background-image:
@@ -100,9 +101,9 @@ body::after {
 
 .dashboard {
   min-height: 100vh;
-  max-width: 1800px;
-  margin: 0 auto;
-  padding: 20px;
+  max-width: 100%;
+  margin: 0;
+  padding: 15px 20px;
   position: relative;
   z-index: 1;
   display: flex;
@@ -521,11 +522,12 @@ body::after {
   grid-template-columns: 2fr 0.8fr 0.8fr;
   gap: 16px;
   margin-bottom: 16px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .timeline-row {
   margin-bottom: 16px;
+  min-height: 180px;
 }
 
 .chart-card {
@@ -547,7 +549,8 @@ body::after {
 }
 
 .chart-card:not(.android-panel-compact) {
-  height: 320px;
+  min-height: 320px;
+  flex: 1;
 }
 
 .chart-card.full-width {
@@ -583,13 +586,13 @@ body::after {
 .chart-container {
   flex: 1;
   position: relative;
-  min-height: 160px;
+  min-height: 0;
   height: auto;
 }
 
 .timeline-container {
-  min-height: 120px;
-  max-height: 150px;
+  min-height: 100px;
+  flex: 1;
 }
 
 .chart-card::before {
@@ -609,7 +612,7 @@ body::after {
 .android-panel-compact {
   display: flex;
   flex-direction: column;
-  height: 320px;
+  height: 420px;
 }
 
 .android-compact-layout {
@@ -627,6 +630,30 @@ body::after {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+}
+
+/* SURI Video Avatar Styles */
+.suri-avatar-frame {
+  width: 220px;
+  height: 280px;
+  background: #000;
+  border: 2px solid var(--neon-cyan);
+  border-radius: 16px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: var(--glow-cyan);
+}
+
+.suri-avatar-frame video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+}
+
+.suri-avatar-frame.talking {
+  border-color: var(--neon-red);
+  box-shadow: 0 0 20px var(--neon-red), inset 0 0 30px rgba(255, 51, 102, 0.2);
 }
 
 .speech-bubble-section {
@@ -1102,6 +1129,10 @@ body::after {
   .chart-card:not(.android-panel-compact) {
     height: 280px;
   }
+  .suri-avatar-frame {
+    width: 180px;
+    height: 220px;
+  }
 }
 
 @media (max-width: 1200px) {
@@ -1110,7 +1141,7 @@ body::after {
   }
   .android-panel-compact {
     grid-column: span 1;
-    height: 320px;
+    height: 380px;
   }
   .chart-card:not(.android-panel-compact) {
     height: 280px;
@@ -1118,6 +1149,10 @@ body::after {
   .android-compact-layout {
     flex-direction: row;
     gap: 30px;
+  }
+  .suri-avatar-frame {
+    width: 160px;
+    height: 200px;
   }
   .timeline-row .chart-card {
     min-height: 150px;
@@ -1192,9 +1227,9 @@ body::after {
     flex-direction: column;
     gap: 15px;
   }
-  .android-head.large {
-    width: 120px;
-    height: 144px;
+  .suri-avatar-frame {
+    width: 140px;
+    height: 180px;
   }
   .panel-content {
     padding: 12px;

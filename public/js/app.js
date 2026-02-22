@@ -20,7 +20,12 @@ const elements = {
   alertSearch: document.getElementById('alert-search'),
   toastContainer: document.getElementById('toast-container'),
   androidStatusText: document.getElementById('android-status-text'),
-  apsValue: document.getElementById('aps-value')
+  apsValue: document.getElementById('aps-value'),
+  suriAvatar: document.getElementById('suri-avatar'),
+  avatarVideo: document.getElementById('avatar-video'),
+  speechText: document.getElementById('speech-text'),
+  speechMeta: document.getElementById('speech-meta'),
+  speechContent: document.getElementById('speech-content')
 };
 
 // APS tracking
@@ -53,11 +58,29 @@ let allAlerts = [];
 document.addEventListener('DOMContentLoaded', () => {
   initCharts();
   initEventListeners();
-  initSpeechBubble();
+  initSuriAvatar();
   updateTime();
   setInterval(updateTime, 1000);
   connectSocket();
 });
+
+// Initialize SURI Video Avatar
+function initSuriAvatar() {
+  const speechText = document.getElementById('speech-text');
+  const speechMeta = document.getElementById('speech-meta');
+  if (speechText) speechText.textContent = 'System ready...';
+  if (speechMeta) speechMeta.textContent = 'Awaiting threat data';
+  
+  // Setup video avatar
+  if (elements.avatarVideo) {
+    elements.avatarVideo.addEventListener('loadedmetadata', () => {
+      elements.avatarVideo.currentTime = 0;
+    });
+    elements.avatarVideo.play().catch(() => {
+      console.log('Video autoplay blocked - user interaction required');
+    });
+  }
+}
 
 // Gráficos
 function initCharts() {
@@ -404,7 +427,7 @@ function showToast(alert) {
   }, 5000);
 }
 
-// Android Face States
+// Android Face States - Now uses video avatar
 const faceMessages = {
   critical: '!! DANGER !!',
   high: '!! WARNING !!',
@@ -415,32 +438,7 @@ const faceMessages = {
 
 let androidTimeout;
 let currentFace = 'normal';
-
-function setAndroidExpression(expression) {
-  const face = document.getElementById('android-face');
-  if (!face) return;
-
-  // Remove all expression classes
-  face.classList.remove('normal', 'terror-mode', 'scanning');
-
-  // Hide all expressions
-  document.querySelectorAll('.face-expression').forEach(el => el.classList.remove('active'));
-
-  // Show selected expression
-  const expressionEl = document.getElementById(`face-${expression}`);
-  if (expressionEl) {
-    expressionEl.classList.add('active');
-  }
-
-  // Apply face-wide effects
-  if (expression === 'terror') {
-    face.classList.add('terror-mode');
-  } else if (expression === 'warning') {
-    face.classList.add('scanning');
-  }
-
-  currentFace = expression;
-}
+let dialogueTimeout;
 
 function updateAndroidStatus(severity) {
   const statusText = elements.androidStatusText;
@@ -448,37 +446,32 @@ function updateAndroidStatus(severity) {
 
   if (!statusText) return;
 
-  // Set expression based on severity
+  // Update status text based on severity
   if (severity === 'critical') {
-    setAndroidExpression('terror');
     statusText.textContent = faceMessages.critical;
     statusText.style.color = chartColors.critical;
     if (statusDot) {
       statusDot.className = 'status-dot-mini alert';
     }
   } else if (severity === 'high') {
-    setAndroidExpression('warning');
     statusText.textContent = faceMessages.high;
     statusText.style.color = chartColors.high;
     if (statusDot) {
       statusDot.className = 'status-dot-mini warning';
     }
   } else if (severity === 'medium') {
-    setAndroidExpression('normal');
     statusText.textContent = faceMessages.medium;
     statusText.style.color = chartColors.medium;
     if (statusDot) {
       statusDot.className = 'status-dot-mini';
     }
   } else if (severity === 'low') {
-    setAndroidExpression('happy');
     statusText.textContent = faceMessages.low;
     statusText.style.color = chartColors.low;
     if (statusDot) {
       statusDot.className = 'status-dot-mini safe';
     }
   } else {
-    setAndroidExpression('normal');
     statusText.textContent = faceMessages.info;
     statusText.style.color = chartColors.timeline;
     if (statusDot) {
@@ -489,15 +482,66 @@ function updateAndroidStatus(severity) {
   // Reset to normal after timeout
   clearTimeout(androidTimeout);
   androidTimeout = setTimeout(() => {
-    setAndroidExpression('normal');
     if (statusText) {
-      statusText.textContent = 'SYSTEM ONLINE';
+      statusText.textContent = 'SURI ONLINE';
       statusText.style.color = chartColors.timeline;
     }
     if (statusDot) {
       statusDot.className = 'status-dot-mini';
     }
-  }, 4000);
+  }, 5000);
+}
+
+function updateAndroidStatus(severity) {
+  const statusText = elements.androidStatusText;
+  const statusDot = document.getElementById('android-status-dot');
+
+  if (!statusText) return;
+
+  // Update status text based on severity - video avatar doesn't have expressions
+  if (severity === 'critical') {
+    statusText.textContent = faceMessages.critical;
+    statusText.style.color = chartColors.critical;
+    if (statusDot) {
+      statusDot.className = 'status-dot-mini alert';
+    }
+  } else if (severity === 'high') {
+    statusText.textContent = faceMessages.high;
+    statusText.style.color = chartColors.high;
+    if (statusDot) {
+      statusDot.className = 'status-dot-mini warning';
+    }
+  } else if (severity === 'medium') {
+    statusText.textContent = faceMessages.medium;
+    statusText.style.color = chartColors.medium;
+    if (statusDot) {
+      statusDot.className = 'status-dot-mini';
+    }
+  } else if (severity === 'low') {
+    statusText.textContent = faceMessages.low;
+    statusText.style.color = chartColors.low;
+    if (statusDot) {
+      statusDot.className = 'status-dot-mini safe';
+    }
+  } else {
+    statusText.textContent = faceMessages.info;
+    statusText.style.color = chartColors.timeline;
+    if (statusDot) {
+      statusDot.className = 'status-dot-mini';
+    }
+  }
+
+  // Reset to normal after timeout
+  clearTimeout(androidTimeout);
+  androidTimeout = setTimeout(() => {
+    if (statusText) {
+      statusText.textContent = 'SURI ONLINE';
+      statusText.style.color = chartColors.timeline;
+    }
+    if (statusDot) {
+      statusDot.className = 'status-dot-mini';
+    }
+  }, 5000);
 }
 
 // Speech Bubble Update
@@ -518,15 +562,45 @@ function updateSpeechBubble(alert) {
   // Update bubble style
   const severity = alert.severity || 'info';
   speechBubble.className = `speech-bubble compact ${severity}`;
+  
+  // Trigger video avatar talking animation
+  playSuriTalking(severity);
 }
 
-// Initialize speech bubble
-function initSpeechBubble() {
-  const speechText = document.getElementById('speech-text');
-  const speechMeta = document.getElementById('speech-meta');
-  if (speechText) speechText.textContent = 'System ready...';
-  if (speechMeta) speechMeta.textContent = 'Awaiting threat data';
-  setAndroidExpression('normal');
+// Play SURI video when talking
+function playSuriTalking(severity) {
+  if (!elements.suriAvatar || !elements.avatarVideo) return;
+  
+  clearTimeout(dialogueTimeout);
+  
+  // Add talking class for visual effect
+  elements.suriAvatar.classList.add('talking');
+  
+  // Play video from talking section
+  if (elements.avatarVideo) {
+    elements.avatarVideo.currentTime = 2.0;
+    elements.avatarVideo.play();
+    elements.avatarVideo.playbackRate = 1.0;
+    
+    const loopSection = () => {
+      if (elements.avatarVideo.currentTime >= 6.0) {
+        elements.avatarVideo.currentTime = 2.0;
+      }
+    };
+    elements.avatarVideo.ontimeupdate = loopSection;
+  }
+  
+  // Stop after delay
+  dialogueTimeout = setTimeout(() => {
+    if (elements.suriAvatar) {
+      elements.suriAvatar.classList.remove('talking');
+    }
+    if (elements.avatarVideo) {
+      elements.avatarVideo.ontimeupdate = null;
+      elements.avatarVideo.pause();
+      elements.avatarVideo.currentTime = 0;
+    }
+  }, 5000);
 }
 
 // Reiniciar métricas

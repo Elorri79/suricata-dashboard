@@ -121,48 +121,25 @@
 
     <!-- Charts Row - Tactical Display -->
     <section class="charts-row">
-      <!-- Android Avatar + Speech Bubble (compact) -->
+      <!-- SURI AI Avatar + Speech Bubble -->
       <div class="chart-card android-panel-compact">
-        <h3>AI MONITOR</h3>
+        <h3>AI CO-PILOT</h3>
         <div class="android-compact-layout">
           <div class="android-avatar-section">
-            <div class="android-head large">
-              <div class="android-face" id="android-face">
-                <div class="face-expression normal active" id="face-normal">
-                  <div class="android-eye left"></div>
-                  <div class="android-eye right"></div>
-                  <div class="android-mouth normal"></div>
-                </div>
-                <div class="face-expression terror" id="face-terror">
-                  <div class="android-eye terror-eye left"></div>
-                  <div class="android-eye terror-eye right"></div>
-                  <div class="android-mouth terror"></div>
-                </div>
-                <div class="face-expression warning" id="face-warning">
-                  <div class="android-eye half closed left"></div>
-                  <div class="android-eye half closed right"></div>
-                  <div class="android-mouth neutral"></div>
-                </div>
-                <div class="face-expression happy" id="face-happy">
-                  <div class="android-eye happy-eye left"></div>
-                  <div class="android-eye happy-eye right"></div>
-                  <div class="android-mouth happy"></div>
-                </div>
-                <div class="android-antenna left"></div>
-                <div class="android-antenna right"></div>
-                <div class="android-ear left"></div>
-                <div class="android-ear right"></div>
-              </div>
+            <div class="suri-avatar-frame" id="suri-avatar">
+              <video id="avatar-video" autoplay loop muted playsinline>
+                <source src="/videos/avatar.mp4" type="video/mp4">
+              </video>
             </div>
             <div class="android-status-mini">
               <span class="status-dot-mini" id="android-status-dot"></span>
-              <span id="android-status-text">SYSTEM ONLINE</span>
+              <span id="android-status-text">SURI ONLINE</span>
             </div>
           </div>
           <div class="speech-bubble-section">
             <div class="speech-bubble compact">
               <div class="speech-bubble-content" id="speech-content">
-                <div class="speech-header">>> DETECTED</div>
+                <div class="speech-header">>> SURI</div>
                 <div class="speech-body" id="speech-text">System ready...</div>
                 <div class="speech-meta" id="speech-meta">Awaiting threat data</div>
               </div>
