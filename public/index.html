@@ -1,12 +1,17 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SURICATA // IDS COMMAND</title>
+  <meta name="description"
+    content="Suricata IDS/IPS Real-Time Security Dashboard - Monitor network threats and intrusion detection events">
+  <title>SURICATA IDS // COMMAND DECK</title>
   <link rel="stylesheet" href="/css/style.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◈</text></svg>">
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◈</text></svg>">
 </head>
+
 <body>
   <!-- Background Grid Animation -->
   <div class="grid-scan"></div>
@@ -15,113 +20,139 @@
     <!-- Header - Command Deck -->
     <header class="header">
       <div class="header-left">
-        <h1>◈ SURICATA IDS</h1>
+        <h1>
+          <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M12 2L2 7l10 5 10-5-10-5z" />
+            <path d="M2 17l10 5 10-5" />
+            <path d="M2 12l10 5 10-5" />
+          </svg>
+          SURICATA IDS
+        </h1>
         <span class="status-indicator">
           <span class="pulse"></span>
           <span id="connection-status">ONLINE</span>
         </span>
+        <div class="header-meta">
+          <span class="meta-label">BUILD</span>
+          <span class="meta-value">2.4.1</span>
+        </div>
+      </div>
+      <div class="header-center">
+        <span class="time" id="current-time">--:--:--</span>
       </div>
       <div class="header-right">
-        <span class="time" id="current-time">--:--:--</span>
-        <span class="aps-indicator" id="aps-value">0</span>
-        <span class="aps-label">APS</span>
-        <button class="btn" onclick="resetMetrics()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-            <path d="M3 3v5h5"/>
+        <div class="kpi-pill">
+          <span class="kpi-val" id="aps-value">0.0</span>
+          <span class="kpi-lbl">A/S</span>
+        </div>
+        <div class="kpi-pill amber">
+          <span class="kpi-val" id="alerts-per-min">0</span>
+          <span class="kpi-lbl">A/MIN</span>
+        </div>
+        <button class="btn" id="reset-btn" onclick="resetMetrics()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
           </svg>
-          RESET_SYS
+          RESET
         </button>
       </div>
     </header>
 
     <!-- Stats Grid - Module Display -->
-    <section class="stats-grid">
-      <div class="stat-card total">
+    <section class="stats-grid" aria-label="Alert counters">
+      <div class="stat-card total" id="card-total">
         <div class="stat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-            <path d="M2 17l10 5 10-5"/>
-            <path d="M2 12l10 5 10-5"/>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M12 2L2 7l10 5 10-5-10-5z" />
+            <path d="M2 17l10 5 10-5" />
+            <path d="M2 12l10 5 10-5" />
           </svg>
         </div>
         <div class="stat-content">
           <span class="stat-value" id="total-alerts">0</span>
           <span class="stat-label">Total Events</span>
         </div>
+        <div class="stat-trend">ALL</div>
       </div>
 
-      <div class="stat-card critical">
+      <div class="stat-card critical" id="card-critical">
         <div class="stat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-            <line x1="12" y1="9" x2="12" y2="13"/>
-            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            <line x1="12" y1="9" x2="12" y2="13" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
           </svg>
         </div>
         <div class="stat-content">
           <span class="stat-value" id="critical-count">0</span>
           <span class="stat-label">Critical</span>
         </div>
+        <div class="stat-trend sev-1">SEV·1</div>
       </div>
 
-      <div class="stat-card high">
+      <div class="stat-card high" id="card-high">
         <div class="stat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <polygon
+              points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
           </svg>
         </div>
         <div class="stat-content">
           <span class="stat-value" id="high-count">0</span>
           <span class="stat-label">High</span>
         </div>
+        <div class="stat-trend sev-2">SEV·2</div>
       </div>
 
-      <div class="stat-card medium">
+      <div class="stat-card medium" id="card-medium">
         <div class="stat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="12" y1="8" x2="12" y2="12"/>
-            <line x1="12" y1="12" x2="16" y2="12"/>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
           </svg>
         </div>
         <div class="stat-content">
           <span class="stat-value" id="medium-count">0</span>
           <span class="stat-label">Medium</span>
         </div>
+        <div class="stat-trend sev-3">SEV·3</div>
       </div>
 
-      <div class="stat-card low">
+      <div class="stat-card low" id="card-low">
         <div class="stat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-            <polyline points="22 4 12 14.01 9 11.01"/>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+            <polyline points="22 4 12 14.01 9 11.01" />
           </svg>
         </div>
         <div class="stat-content">
           <span class="stat-value" id="low-count">0</span>
           <span class="stat-label">Low</span>
         </div>
+        <div class="stat-trend sev-4">SEV·4</div>
       </div>
 
-      <div class="stat-card info">
+      <div class="stat-card info" id="card-info">
         <div class="stat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="12" y1="16" x2="12" y2="12"/>
-            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="16" x2="12" y2="12" />
+            <line x1="12" y1="8" x2="12.01" y2="8" />
           </svg>
         </div>
         <div class="stat-content">
           <span class="stat-value" id="info-count">0</span>
           <span class="stat-label">Info</span>
         </div>
+        <div class="stat-trend sev-5">SEV·5</div>
       </div>
     </section>
 
     <!-- Charts Row - Tactical Display -->
-    <section class="charts-row">
-      <!-- SURI AI Avatar + Speech Bubble -->
+    <section class="charts-row" aria-label="Charts">
+      <!-- AI CO-PILOT -->
       <div class="chart-card android-panel-compact">
         <h3>AI CO-PILOT</h3>
         <div class="android-compact-layout">
@@ -130,17 +161,18 @@
               <video id="avatar-video" autoplay loop muted playsinline>
                 <source src="/videos/avatar.mp4" type="video/mp4">
               </video>
+              <div class="avatar-overlay"></div>
             </div>
             <div class="android-status-mini">
-              <span class="status-dot-mini" id="android-status-dot"></span>
+              <span class="status-dot-mini safe" id="android-status-dot"></span>
               <span id="android-status-text">SURI ONLINE</span>
             </div>
           </div>
           <div class="speech-bubble-section">
             <div class="speech-bubble compact">
               <div class="speech-bubble-content" id="speech-content">
-                <div class="speech-header">>> SURI</div>
-                <div class="speech-body" id="speech-text">System ready...</div>
+                <div class="speech-header">>> SURI ANALYSIS</div>
+                <div class="speech-body" id="speech-text">System ready. All sensors online.</div>
                 <div class="speech-meta" id="speech-meta">Awaiting threat data</div>
               </div>
             </div>
@@ -158,7 +190,7 @@
 
       <!-- Protocol Distribution -->
       <div class="chart-card">
-        <h3>Protocol Distribution</h3>
+        <h3>Protocol Matrix</h3>
         <div class="chart-container">
           <canvas id="protocol-chart"></canvas>
         </div>
@@ -166,9 +198,9 @@
     </section>
 
     <!-- Timeline Row -->
-    <section class="timeline-row">
+    <section class="timeline-row" aria-label="Activity timeline">
       <div class="chart-card full-width">
-        <h3>Activity Timeline [24H]</h3>
+        <h3>Activity Timeline <span class="h3-sub">[24H]</span></h3>
         <div class="chart-container timeline-container">
           <canvas id="timeline-chart"></canvas>
         </div>
@@ -176,10 +208,11 @@
     </section>
 
     <!-- Bottom Row - Data Slots -->
-    <section class="bottom-row">
+    <section class="bottom-row" aria-label="Top lists">
       <div class="panel">
         <div class="panel-header">
           <h3>Top Signatures</h3>
+          <span class="panel-count" id="sig-count"></span>
         </div>
         <div class="panel-content">
           <ul class="signature-list" id="signature-list">
@@ -212,25 +245,33 @@
     </section>
 
     <!-- Recent Alerts - Threat Log -->
-    <section class="alerts-section">
+    <section class="alerts-section" aria-label="Threat log">
       <div class="panel full-width">
         <div class="panel-header">
           <h3>Threat Log</h3>
           <div class="panel-actions">
-            <input type="text" class="search-input" id="alert-search" placeholder="Search database...">
+            <div class="search-wrapper">
+              <svg class="search-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input type="text" class="search-input" id="alert-search"
+                placeholder="Filter by IP, signature, severity...">
+            </div>
           </div>
         </div>
-        <div class="panel-content">
+        <div class="panel-content alerts-panel-content">
           <table class="alerts-table">
             <thead>
               <tr>
                 <th>Timestamp</th>
-                <th>Level</th>
+                <th>Severity</th>
                 <th>Signature</th>
-                <th>Source</th>
-                <th>Port</th>
-                <th>Destination</th>
-                <th>Port</th>
+                <th>Source IP</th>
+                <th>Src Port</th>
+                <th>Dest IP</th>
+                <th>Dst Port</th>
                 <th>Proto</th>
               </tr>
             </thead>
@@ -244,19 +285,20 @@
       </div>
     </section>
 
-    <!-- Footer Decor -->
+    <!-- Footer -->
     <div class="footer-decor">
-      <span>SYS_VERSION: 1.0.0</span>
-      <span>SECURE_CONNECTION: ESTABLISHED</span>
-      <span>IDS_STATUS: MONITORING</span>
+      <span>SYS_BUILD: 2.4.1</span>
+      <span>SECURE_CHANNEL: ESTABLISHED</span>
+      <span>IDS_MODE: ACTIVE MONITORING</span>
     </div>
   </div>
 
   <!-- Toast Container -->
-  <div class="toast-container" id="toast-container"></div>
+  <div class="toast-container" id="toast-container" aria-live="polite"></div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/chart.min.js"></script>
   <script src="/js/app.js"></script>
 </body>
+
 </html>

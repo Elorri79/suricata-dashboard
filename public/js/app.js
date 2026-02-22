@@ -25,12 +25,14 @@ const elements = {
   avatarVideo: document.getElementById('avatar-video'),
   speechText: document.getElementById('speech-text'),
   speechMeta: document.getElementById('speech-meta'),
-  speechContent: document.getElementById('speech-content')
+  speechContent: document.getElementById('speech-content'),
+  threatLevel: document.getElementById('threat-level-text'),
+  alertsPerMin: document.getElementById('alerts-per-min')
 };
 
 // APS tracking
 let alertTimestamps = [];
-const MAX_APS_SAMPLES = 10;
+const MAX_APS_SAMPLES = 60; // track last 60 seconds
 
 // Colores para gráficos - Cyberpunk Neon
 const chartColors = {
@@ -61,29 +63,149 @@ document.addEventListener('DOMContentLoaded', () => {
   initSuriAvatar();
   updateTime();
   setInterval(updateTime, 1000);
+  setInterval(updateAPS, 1000);
   connectSocket();
 });
+
+// ─── Video state machine ────────────────────────────────────────────────
+// El video tiene ~6s. Estructura:
+//   0.0 – 1.2s : arranque con "salto" → SALTAMOS
+//   1.2 – 2.0s : posición estable, sin movimiento boca  → IDLE loop
+//   2.0 – 6.0s : boca en movimiento                     → TALKING loop
+const VIDEO_IDLE_START = 1.2;
+const VIDEO_IDLE_END = 2.0;
+const VIDEO_TALK_START = 2.0;
+const VIDEO_TALK_END = 6.0;
+
+const videoState = {
+  mode: 'idle',      // 'idle' | 'talking'
+  loopHandler: null  // referencia al listener de timeupdate activo
+};
+
+function setVideoLoop(startTime, endTime) {
+  const video = elements.avatarVideo;
+  if (!video) return;
+
+  // Quitar handler anterior
+  if (videoState.loopHandler) {
+    video.removeEventListener('timeupdate', videoState.loopHandler);
+    videoState.loopHandler = null;
+  }
+
+  // Saltar al inicio de la sección si estamos fuera de rango
+  if (video.currentTime < startTime || video.currentTime >= endTime) {
+    video.currentTime = startTime;
+  }
+
+  // Nuevo handler de loop
+  const handler = () => {
+    if (video.currentTime >= endTime) {
+      video.currentTime = startTime;
+    }
+  };
+  videoState.loopHandler = handler;
+  video.addEventListener('timeupdate', handler);
+
+  video.play().catch(() => { });
+}
+
+function setVideoIdle(force = false) {
+  if (!force && videoState.mode === 'idle') return;
+  videoState.mode = 'idle';
+  setVideoLoop(VIDEO_IDLE_START, VIDEO_IDLE_END);
+}
+
+function setVideoTalking() {
+  videoState.mode = 'talking';
+  setVideoLoop(VIDEO_TALK_START, VIDEO_TALK_END);
+}
+// ────────────────────────────────────────────────────────────────────────
 
 // Initialize SURI Video Avatar
 function initSuriAvatar() {
   const speechText = document.getElementById('speech-text');
   const speechMeta = document.getElementById('speech-meta');
-  if (speechText) speechText.textContent = 'System ready...';
+  if (speechText) speechText.textContent = 'System ready. All sensors online.';
   if (speechMeta) speechMeta.textContent = 'Awaiting threat data';
-  
-  // Setup video avatar
-  if (elements.avatarVideo) {
-    elements.avatarVideo.addEventListener('loadedmetadata', () => {
-      elements.avatarVideo.currentTime = 0;
-    });
-    elements.avatarVideo.play().catch(() => {
-      console.log('Video autoplay blocked - user interaction required');
-    });
+
+  // Borde idle por defecto
+  setAvatarSeverity('idle');
+
+  const video = elements.avatarVideo;
+  if (!video) return;
+
+  video.muted = true;
+  video.loop = false;  // el loop lo gestionamos nosotros
+  video.playsInline = true;
+
+  video.addEventListener('loadedmetadata', () => {
+    // Saltamos directamente al inicio del idle para evitar el "salto"
+    video.currentTime = VIDEO_IDLE_START;
+    setVideoIdle(true);  // force=true: siempre configurar el loop, aunque mode ya sea 'idle'
+  });
+
+  video.addEventListener('canplay', () => {
+    if (videoState.mode === 'idle' && video.paused) setVideoLoop(VIDEO_IDLE_START, VIDEO_IDLE_END);
+  }, { once: true });
+
+  // Reanudar si autoplay fue bloqueado
+  const resumeOnInteraction = () => {
+    if (video.paused) video.play().catch(() => { });
+    document.removeEventListener('click', resumeOnInteraction);
+    document.removeEventListener('keydown', resumeOnInteraction);
+  };
+  document.addEventListener('click', resumeOnInteraction);
+  document.addEventListener('keydown', resumeOnInteraction);
+
+  // Fallback SVG si el video falla
+  video.addEventListener('error', () => {
+    console.warn('Avatar video failed to load, showing placeholder');
+    if (elements.suriAvatar) {
+      elements.suriAvatar.innerHTML = `
+        <div class="avatar-fallback">
+          <svg viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="faceGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#1a2a3a"/>
+                <stop offset="100%" stop-color="#050a0f"/>
+              </linearGradient>
+            </defs>
+            <ellipse cx="50" cy="65" rx="38" ry="46" fill="url(#faceGrad)" stroke="#00e5ff" stroke-width="1.5" opacity="0.9"/>
+            <rect x="8" y="68" width="8" height="20" rx="4" fill="#101820" stroke="#00e5ff" stroke-width="1" opacity="0.7"/>
+            <rect x="84" y="68" width="8" height="20" rx="4" fill="#101820" stroke="#00e5ff" stroke-width="1" opacity="0.7"/>
+            <line x1="34" y1="19" x2="28" y2="6" stroke="#00e5ff" stroke-width="2" opacity="0.8"/>
+            <circle cx="28" cy="5" r="3" fill="#ff003c"><animate attributeName="opacity" values="1;0.3;1" dur="1.2s" repeatCount="indefinite"/></circle>
+            <line x1="66" y1="19" x2="72" y2="6" stroke="#00e5ff" stroke-width="2" opacity="0.8"/>
+            <circle cx="72" cy="5" r="3" fill="#ff003c"><animate attributeName="opacity" values="1;0.3;1" dur="0.9s" repeatCount="indefinite"/></circle>
+            <ellipse cx="36" cy="62" rx="9" ry="11" fill="#00e5ff" opacity="0.9">
+              <animate attributeName="ry" values="11;1;11" dur="4s" keyTimes="0;0.48;0.5" repeatCount="indefinite"/>
+            </ellipse>
+            <ellipse cx="64" cy="62" rx="9" ry="11" fill="#00e5ff" opacity="0.9">
+              <animate attributeName="ry" values="11;1;11" dur="4s" keyTimes="0;0.48;0.5" repeatCount="indefinite"/>
+            </ellipse>
+            <ellipse cx="39" cy="58" rx="3" ry="4" fill="white" opacity="0.4"/>
+            <ellipse cx="67" cy="58" rx="3" ry="4" fill="white" opacity="0.4"/>
+            <line x1="38" y1="92" x2="62" y2="92" stroke="#00e5ff" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+            <ellipse cx="50" cy="55" rx="30" ry="35" fill="rgba(0,229,255,0.04)"/>
+          </svg>
+          <div class="avatar-fallback-scan"></div>
+        </div>
+      `;
+    }
+  });
+
+  // Arranque inmediato si el video ya está listo (cargado previamente)
+  if (video.readyState >= 2) {
+    video.currentTime = VIDEO_IDLE_START;
+    setVideoIdle(true);  // force=true para garantizar que se instala el handler
   }
 }
 
 // Gráficos
 function initCharts() {
+  Chart.defaults.color = '#6a8fa8';
+  Chart.defaults.font.family = 'JetBrains Mono';
+
   // Severity Chart (Doughnut)
   const severityCtx = document.getElementById('severity-chart').getContext('2d');
   severityChart = new Chart(severityCtx, {
@@ -93,6 +215,13 @@ function initCharts() {
       datasets: [{
         data: [0, 0, 0, 0, 0],
         backgroundColor: [
+          chartColors.critical + 'cc',
+          chartColors.high + 'cc',
+          chartColors.medium + 'cc',
+          chartColors.low + 'cc',
+          chartColors.info + 'cc'
+        ],
+        borderColor: [
           chartColors.critical,
           chartColors.high,
           chartColors.medium,
@@ -100,23 +229,33 @@ function initCharts() {
           chartColors.info
         ],
         borderWidth: 2,
-        borderColor: '#0a0f14',
-        hoverOffset: 8
+        hoverOffset: 10
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      cutout: '60%',
+      cutout: '65%',
       plugins: {
         legend: {
           position: 'bottom',
           labels: {
             color: '#6a8fa8',
-            padding: 12,
+            padding: 10,
             usePointStyle: true,
-            pointStyle: 'rect',
+            pointStyle: 'rectRounded',
             font: { family: 'JetBrains Mono', size: 10 }
+          }
+        },
+        tooltip: {
+          backgroundColor: '#0a0f14',
+          borderColor: '#00f0ff',
+          borderWidth: 1,
+          titleColor: '#00f0ff',
+          bodyColor: '#e0f0ff',
+          padding: 10,
+          callbacks: {
+            label: (ctx) => ` ${ctx.label}: ${ctx.raw.toLocaleString('es-ES')} (${((ctx.raw / (ctx.dataset.data.reduce((a, b) => a + b, 0) || 1)) * 100).toFixed(1)}%)`
           }
         }
       }
@@ -132,6 +271,14 @@ function initCharts() {
       datasets: [{
         data: [0, 0, 0, 0, 0, 0],
         backgroundColor: [
+          chartColors.tcp + 'cc',
+          chartColors.udp + 'cc',
+          chartColors.icmp + 'cc',
+          chartColors.http + 'cc',
+          chartColors.https + 'cc',
+          chartColors.dns + 'cc'
+        ],
+        borderColor: [
           chartColors.tcp,
           chartColors.udp,
           chartColors.icmp,
@@ -140,23 +287,33 @@ function initCharts() {
           chartColors.dns
         ],
         borderWidth: 2,
-        borderColor: '#0a0f14',
-        hoverOffset: 8
+        hoverOffset: 10
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      cutout: '60%',
+      cutout: '65%',
       plugins: {
         legend: {
           position: 'bottom',
           labels: {
             color: '#6a8fa8',
-            padding: 12,
+            padding: 10,
             usePointStyle: true,
-            pointStyle: 'rect',
+            pointStyle: 'rectRounded',
             font: { family: 'JetBrains Mono', size: 10 }
+          }
+        },
+        tooltip: {
+          backgroundColor: '#0a0f14',
+          borderColor: '#00f0ff',
+          borderWidth: 1,
+          titleColor: '#00f0ff',
+          bodyColor: '#e0f0ff',
+          padding: 10,
+          callbacks: {
+            label: (ctx) => ` ${ctx.label}: ${ctx.raw.toLocaleString('es-ES')} (${((ctx.raw / (ctx.dataset.data.reduce((a, b) => a + b, 0) || 1)) * 100).toFixed(1)}%)`
           }
         }
       }
@@ -170,17 +327,22 @@ function initCharts() {
     data: {
       labels: [],
       datasets: [{
-        label: 'ALERTS',
+        label: 'ALERTS/HOUR',
         data: [],
         borderColor: chartColors.timeline,
-        backgroundColor: 'rgba(0, 240, 255, 0.1)',
+        backgroundColor: (ctx) => {
+          const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, ctx.chart.height);
+          gradient.addColorStop(0, 'rgba(0, 240, 255, 0.3)');
+          gradient.addColorStop(1, 'rgba(0, 240, 255, 0.0)');
+          return gradient;
+        },
         borderWidth: 2,
         fill: true,
-        tension: 0.3,
+        tension: 0.4,
         pointRadius: 3,
-        pointHoverRadius: 6,
+        pointHoverRadius: 7,
         pointBackgroundColor: chartColors.timeline,
-        pointBorderColor: '#0a0f14',
+        pointBorderColor: '#030508',
         pointBorderWidth: 2
       }]
     },
@@ -194,18 +356,19 @@ function initCharts() {
       scales: {
         x: {
           grid: {
-            color: 'rgba(0, 240, 255, 0.1)',
+            color: 'rgba(0, 240, 255, 0.07)',
             drawBorder: false
           },
           ticks: {
             color: '#6a8fa8',
-            font: { family: 'JetBrains Mono', size: 10 }
+            font: { family: 'JetBrains Mono', size: 10 },
+            maxTicksLimit: 12
           }
         },
         y: {
           beginAtZero: true,
           grid: {
-            color: 'rgba(0, 240, 255, 0.1)',
+            color: 'rgba(0, 240, 255, 0.07)',
             drawBorder: false
           },
           ticks: {
@@ -215,8 +378,14 @@ function initCharts() {
         }
       },
       plugins: {
-        legend: {
-          display: false
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0a0f14',
+          borderColor: '#00f0ff',
+          borderWidth: 1,
+          titleColor: '#00f0ff',
+          bodyColor: '#e0f0ff',
+          padding: 10
         }
       }
     }
@@ -232,11 +401,13 @@ function initEventListeners() {
 function connectSocket() {
   socket.on('connect', () => {
     elements.connectionStatus.textContent = 'ONLINE';
+    elements.connectionStatus.style.color = '#00ff88';
     elements.connectionStatus.parentElement.querySelector('.pulse').style.background = '#00ff88';
   });
 
   socket.on('disconnect', () => {
     elements.connectionStatus.textContent = 'OFFLINE';
+    elements.connectionStatus.style.color = '#ff0044';
     elements.connectionStatus.parentElement.querySelector('.pulse').style.background = '#ff0044';
   });
 
@@ -252,12 +423,12 @@ function connectSocket() {
 // Actualizar Dashboard
 function updateDashboard(data) {
   // Actualizar contadores con animación
-  animateValue(elements.totalAlerts, parseInt(elements.totalAlerts.textContent), data.totalAlerts, 300);
-  animateValue(elements.criticalCount, parseInt(elements.criticalCount.textContent), data.alertsBySeverity.critical, 300);
-  animateValue(elements.highCount, parseInt(elements.highCount.textContent), data.alertsBySeverity.high, 300);
-  animateValue(elements.mediumCount, parseInt(elements.mediumCount.textContent), data.alertsBySeverity.medium, 300);
-  animateValue(elements.lowCount, parseInt(elements.lowCount.textContent), data.alertsBySeverity.low, 300);
-  animateValue(elements.infoCount, parseInt(elements.infoCount.textContent), data.alertsBySeverity.info, 300);
+  animateValue(elements.totalAlerts, parseInt(elements.totalAlerts.textContent.replace(/\./g, '').replace(/,/g, '')) || 0, data.totalAlerts, 400);
+  animateValue(elements.criticalCount, parseInt(elements.criticalCount.textContent.replace(/\./g, '').replace(/,/g, '')) || 0, data.alertsBySeverity.critical, 400);
+  animateValue(elements.highCount, parseInt(elements.highCount.textContent.replace(/\./g, '').replace(/,/g, '')) || 0, data.alertsBySeverity.high, 400);
+  animateValue(elements.mediumCount, parseInt(elements.mediumCount.textContent.replace(/\./g, '').replace(/,/g, '')) || 0, data.alertsBySeverity.medium, 400);
+  animateValue(elements.lowCount, parseInt(elements.lowCount.textContent.replace(/\./g, '').replace(/,/g, '')) || 0, data.alertsBySeverity.low, 400);
+  animateValue(elements.infoCount, parseInt(elements.infoCount.textContent.replace(/\./g, '').replace(/,/g, '')) || 0, data.alertsBySeverity.info, 400);
 
   // Actualizar gráficos
   updateSeverityChart(data.alertsBySeverity);
@@ -269,44 +440,58 @@ function updateDashboard(data) {
   updateIPList(elements.sourceIPList, data.topSourceIPs);
   updateIPList(elements.destIPList, data.topDestIPs);
 
-  // Actualizar speech bubble con la última alerta
+  // Actualizar alertas recientes en memoria si aún no las tenemos
+  if (data.recentAlerts && allAlerts.length === 0) {
+    allAlerts = data.recentAlerts;
+  }
+
+  // Actualizar speech bubble
   if (data.recentAlerts && data.recentAlerts.length > 0) {
     updateSpeechBubble(data.recentAlerts[0]);
   }
 
   // Actualizar tabla
-  updateAlertsTable(data.recentAlerts);
+  if (!elements.alertSearch.value) {
+    updateAlertsTable(data.recentAlerts || []);
+  }
 }
 
 // Manejar nueva alerta
 function handleNewAlert(alert) {
-  // Track timestamp for APS
   const now = Date.now();
   alertTimestamps.push(now);
 
-  // Remove old timestamps (older than 10 seconds)
-  alertTimestamps = alertTimestamps.filter(t => now - t <= 10000);
+  // Mantener solo últimos 60 segundos
+  alertTimestamps = alertTimestamps.filter(t => now - t <= 60000);
 
-  // Update APS display
-  const aps = (alertTimestamps.length / 10).toFixed(1);
-  elements.apsValue.textContent = aps;
-
-  // Animate APS
-  elements.apsValue.classList.add('updated');
-  setTimeout(() => elements.apsValue.classList.remove('updated'), 200);
-
-  // Mostrar toast
-  showToast(alert);
-
-  // Agregar a lista de alertas
+  // Agregar a lista de alertas locales
   allAlerts.unshift(alert);
-  if (allAlerts.length > 100) {
-    allAlerts.pop();
+  if (allAlerts.length > 200) allAlerts.pop();
+
+  // Mostrar toast solo si es alta o crítica
+  if (alert.severity === 'critical' || alert.severity === 'high') {
+    showToast(alert);
   }
 
   // Actualizar tabla si no hay filtro
   if (!elements.alertSearch.value) {
     updateAlertsTable(allAlerts.slice(0, 50));
+  }
+}
+
+// Calcular y mostrar APS (Alerts Per Second)
+function updateAPS() {
+  const now = Date.now();
+  const last10s = alertTimestamps.filter(t => now - t <= 10000);
+  const aps = (last10s.length / 10).toFixed(1);
+  if (elements.apsValue) {
+    elements.apsValue.textContent = aps;
+    elements.apsValue.classList.toggle('high-aps', parseFloat(aps) > 1);
+  }
+  // Alertas por minuto
+  const last60s = alertTimestamps.filter(t => now - t <= 60000);
+  if (elements.alertsPerMin) {
+    elements.alertsPerMin.textContent = last60s.length;
   }
 }
 
@@ -335,6 +520,7 @@ function updateProtocolChart(protocolData) {
 }
 
 function updateTimelineChart(timelineData) {
+  if (!timelineData || timelineData.length === 0) return;
   timelineChart.data.labels = timelineData.map(d => d.hour);
   timelineChart.data.datasets[0].data = timelineData.map(d => d.count);
   timelineChart.update('none');
@@ -347,12 +533,21 @@ function updateSignatureList(signatures) {
     return;
   }
 
-  elements.signatureList.innerHTML = signatures.map(sig => `
+  const maxCount = signatures[0]?.count || 1;
+  elements.signatureList.innerHTML = signatures.map((sig, i) => {
+    const pct = Math.round((sig.count / maxCount) * 100);
+    const rank = i + 1;
+    return `
     <li>
-      <span class="signature-name" title="${escapeHtml(sig.signature)}">${escapeHtml(sig.signature)}</span>
-      <span class="signature-count">[${sig.count}]</span>
+      <div class="sig-rank">${rank < 10 ? '0' + rank : rank}</div>
+      <div class="sig-info">
+        <span class="signature-name" title="${escapeHtml(sig.signature)}">${escapeHtml(sig.signature)}</span>
+        <div class="sig-bar-wrap"><div class="sig-bar" style="width:${pct}%"></div></div>
+      </div>
+      <span class="signature-count">${sig.count.toLocaleString('es-ES')}</span>
     </li>
-  `).join('');
+  `;
+  }).join('');
 }
 
 function updateIPList(container, ips) {
@@ -360,13 +555,20 @@ function updateIPList(container, ips) {
     container.innerHTML = '<li class="empty-state">WAITING FOR DATA...</li>';
     return;
   }
-
-  container.innerHTML = ips.map(ip => `
+  const maxCount = ips[0]?.count || 1;
+  container.innerHTML = ips.map((ip, i) => {
+    const pct = Math.round((ip.count / maxCount) * 100);
+    return `
     <li>
-      <span class="signature-name" title="${ip.ip}">${ip.ip}</span>
-      <span class="ip-count">[${ip.count}]</span>
+      <div class="sig-rank">${(i + 1).toString().padStart(2, '0')}</div>
+      <div class="sig-info">
+        <span class="signature-name">${ip.ip}</span>
+        <div class="sig-bar-wrap"><div class="sig-bar ip-bar" style="width:${pct}%"></div></div>
+      </div>
+      <span class="ip-count">${ip.count.toLocaleString('es-ES')}</span>
     </li>
-  `).join('');
+  `;
+  }).join('');
 }
 
 // Tabla de alertas
@@ -376,172 +578,121 @@ function updateAlertsTable(alerts) {
     return;
   }
 
-  elements.alertsTableBody.innerHTML = alerts.map(alert => `
-    <tr>
-      <td>${formatTimestamp(alert.timestamp)}</td>
-      <td><span class="severity-badge ${alert.severity || 'null'}">${alert.severity || 'N/A'}</span></td>
-      <td title="${escapeHtml(alert.signature || '')}">${truncate(alert.signature || 'N/A', 50)}</td>
-      <td>${alert.source_ip || '-'}</td>
-      <td>${alert.source_port || '-'}</td>
-      <td>${alert.dest_ip || '-'}</td>
-      <td>${alert.dest_port || '-'}</td>
-      <td>${alert.protocol || '-'}</td>
+  elements.alertsTableBody.innerHTML = alerts.slice(0, 60).map(alert => `
+    <tr class="alert-row-${alert.severity || 'info'}">
+      <td class="ts-cell">${formatTimestamp(alert.timestamp)}</td>
+      <td><span class="severity-badge ${alert.severity || 'null'}">${(alert.severity || 'N/A').toUpperCase()}</span></td>
+      <td class="sig-cell" title="${escapeHtml(alert.signature || '')}">${escapeHtml(truncate(alert.signature || 'N/A', 55))}</td>
+      <td class="ip-cell">${alert.source_ip || '-'}</td>
+      <td class="port-cell">${alert.source_port || '-'}</td>
+      <td class="ip-cell">${alert.dest_ip || '-'}</td>
+      <td class="port-cell">${alert.dest_port || '-'}</td>
+      <td><span class="proto-badge">${alert.protocol || '-'}</span></td>
     </tr>
   `).join('');
 }
 
 // Filtrar alertas
 function filterAlerts() {
-  const query = elements.alertSearch.value.toLowerCase();
+  const query = elements.alertSearch.value.toLowerCase().trim();
+  if (!query) {
+    updateAlertsTable(allAlerts.slice(0, 50));
+    return;
+  }
   const filtered = allAlerts.filter(alert => {
     const signature = (alert.signature || '').toLowerCase();
     const sourceIP = (alert.source_ip || '').toLowerCase();
     const destIP = (alert.dest_ip || '').toLowerCase();
-    return signature.includes(query) || sourceIP.includes(query) || destIP.includes(query);
+    const severity = (alert.severity || '').toLowerCase();
+    const protocol = (alert.protocol || '').toLowerCase();
+    return signature.includes(query) || sourceIP.includes(query) || destIP.includes(query) || severity.includes(query) || protocol.includes(query);
   });
-  updateAlertsTable(filtered.slice(0, 50));
+  updateAlertsTable(filtered.slice(0, 60));
 }
 
-// Toast
+// Toast (solo para alertas críticas/altas)
 function showToast(alert) {
+  // Limitar toasts en pantalla
+  const existingToasts = elements.toastContainer.querySelectorAll('.toast');
+  if (existingToasts.length >= 4) {
+    existingToasts[0].remove();
+  }
+
   const toast = document.createElement('div');
   toast.className = `toast ${alert.severity || 'info'}`;
   toast.innerHTML = `
-    <span class="toast-time">${formatTimestamp(alert.timestamp)}</span>
-    <div class="toast-message">
-      <div><span class="severity-badge ${alert.severity || 'null'}">${(alert.severity || 'UNKNOWN').toUpperCase()}</span></div>
-      <div class="toast-signature">${escapeHtml(alert.signature || 'UNKNOWN SIGNATURE')}</div>
+    <div class="toast-icon">${alert.severity === 'critical' ? '⚠' : '!'}</div>
+    <div class="toast-body">
+      <div class="toast-header">
+        <span class="severity-badge ${alert.severity || 'null'}">${(alert.severity || 'UNKNOWN').toUpperCase()}</span>
+        <span class="toast-time">${formatTimestamp(alert.timestamp)}</span>
+      </div>
+      <div class="toast-signature">${escapeHtml(truncate(alert.signature || 'UNKNOWN SIGNATURE', 60))}</div>
+      <div class="toast-ips">${alert.source_ip || '?'} → ${alert.dest_ip || '?'}</div>
     </div>
   `;
   elements.toastContainer.appendChild(toast);
 
-  // Update android status based on alert severity
+  // Update android status
   updateAndroidStatus(alert.severity);
 
   // Update speech bubble
   updateSpeechBubble(alert);
 
   setTimeout(() => {
-    toast.style.animation = 'slideIn 0.3s ease reverse';
-    setTimeout(() => toast.remove(), 300);
-  }, 5000);
+    toast.classList.add('fadeout');
+    setTimeout(() => toast.remove(), 400);
+  }, 6000);
 }
 
-// Android Face States - Now uses video avatar
+// Messages by severity
 const faceMessages = {
-  critical: '!! DANGER !!',
-  high: '!! WARNING !!',
-  medium: '> ANALYZING',
-  low: '> SCANNING',
-  info: '> MONITORING'
+  critical: '⚠ CRITICAL THREAT DETECTED',
+  high: '! HIGH SEVERITY ALERT',
+  medium: '> ANALYZING ANOMALY',
+  low: '> SCANNING ACTIVITY',
+  info: '> MONITORING NETWORK'
 };
 
 let androidTimeout;
-let currentFace = 'normal';
 let dialogueTimeout;
 
+// ÚNICA definición de updateAndroidStatus (bug fix: eliminada duplicación)
 function updateAndroidStatus(severity) {
   const statusText = elements.androidStatusText;
   const statusDot = document.getElementById('android-status-dot');
 
   if (!statusText) return;
 
-  // Update status text based on severity
-  if (severity === 'critical') {
-    statusText.textContent = faceMessages.critical;
-    statusText.style.color = chartColors.critical;
-    if (statusDot) {
-      statusDot.className = 'status-dot-mini alert';
-    }
-  } else if (severity === 'high') {
-    statusText.textContent = faceMessages.high;
-    statusText.style.color = chartColors.high;
-    if (statusDot) {
-      statusDot.className = 'status-dot-mini warning';
-    }
-  } else if (severity === 'medium') {
-    statusText.textContent = faceMessages.medium;
-    statusText.style.color = chartColors.medium;
-    if (statusDot) {
-      statusDot.className = 'status-dot-mini';
-    }
-  } else if (severity === 'low') {
-    statusText.textContent = faceMessages.low;
-    statusText.style.color = chartColors.low;
-    if (statusDot) {
-      statusDot.className = 'status-dot-mini safe';
-    }
-  } else {
-    statusText.textContent = faceMessages.info;
-    statusText.style.color = chartColors.timeline;
-    if (statusDot) {
-      statusDot.className = 'status-dot-mini';
-    }
-  }
+  const colorMap = {
+    critical: chartColors.critical,
+    high: chartColors.high,
+    medium: chartColors.medium,
+    low: chartColors.low,
+    info: chartColors.timeline
+  };
 
-  // Reset to normal after timeout
+  const dotClassMap = {
+    critical: 'status-dot-mini alert',
+    high: 'status-dot-mini warning',
+    medium: 'status-dot-mini',
+    low: 'status-dot-mini safe',
+    info: 'status-dot-mini'
+  };
+
+  statusText.textContent = faceMessages[severity] || faceMessages.info;
+  statusText.style.color = colorMap[severity] || colorMap.info;
+  if (statusDot) statusDot.className = dotClassMap[severity] || dotClassMap.info;
+
+  // Reset a normal después de timeout
   clearTimeout(androidTimeout);
   androidTimeout = setTimeout(() => {
     if (statusText) {
       statusText.textContent = 'SURI ONLINE';
       statusText.style.color = chartColors.timeline;
     }
-    if (statusDot) {
-      statusDot.className = 'status-dot-mini';
-    }
-  }, 5000);
-}
-
-function updateAndroidStatus(severity) {
-  const statusText = elements.androidStatusText;
-  const statusDot = document.getElementById('android-status-dot');
-
-  if (!statusText) return;
-
-  // Update status text based on severity - video avatar doesn't have expressions
-  if (severity === 'critical') {
-    statusText.textContent = faceMessages.critical;
-    statusText.style.color = chartColors.critical;
-    if (statusDot) {
-      statusDot.className = 'status-dot-mini alert';
-    }
-  } else if (severity === 'high') {
-    statusText.textContent = faceMessages.high;
-    statusText.style.color = chartColors.high;
-    if (statusDot) {
-      statusDot.className = 'status-dot-mini warning';
-    }
-  } else if (severity === 'medium') {
-    statusText.textContent = faceMessages.medium;
-    statusText.style.color = chartColors.medium;
-    if (statusDot) {
-      statusDot.className = 'status-dot-mini';
-    }
-  } else if (severity === 'low') {
-    statusText.textContent = faceMessages.low;
-    statusText.style.color = chartColors.low;
-    if (statusDot) {
-      statusDot.className = 'status-dot-mini safe';
-    }
-  } else {
-    statusText.textContent = faceMessages.info;
-    statusText.style.color = chartColors.timeline;
-    if (statusDot) {
-      statusDot.className = 'status-dot-mini';
-    }
-  }
-
-  // Reset to normal after timeout
-  clearTimeout(androidTimeout);
-  androidTimeout = setTimeout(() => {
-    if (statusText) {
-      statusText.textContent = 'SURI ONLINE';
-      statusText.style.color = chartColors.timeline;
-    }
-    if (statusDot) {
-      statusDot.className = 'status-dot-mini';
-    }
-  }, 5000);
+    if (statusDot) statusDot.className = 'status-dot-mini safe';
+  }, 6000);
 }
 
 // Speech Bubble Update
@@ -553,82 +704,83 @@ function updateSpeechBubble(alert) {
   const speechMeta = document.getElementById('speech-meta');
 
   if (speechText) {
-    speechText.textContent = truncate(alert.signature || 'UNKNOWN', 35);
+    speechText.textContent = truncate(alert.signature || 'UNKNOWN SIGNATURE', 60);
   }
   if (speechMeta) {
-    speechMeta.textContent = `${alert.source_ip || '?'}:${alert.source_port || '?'} → ${alert.dest_ip || '?'}:${alert.dest_port || '?'}`;
+    speechMeta.textContent = `${alert.source_ip || '?'}:${alert.source_port || '?'} → ${alert.dest_ip || '?'}:${alert.dest_port || '?'} [${alert.protocol || '-'}]`;
   }
 
-  // Update bubble style
   const severity = alert.severity || 'info';
   speechBubble.className = `speech-bubble compact ${severity}`;
-  
-  // Trigger video avatar talking animation
+
   playSuriTalking(severity);
 }
 
-// Play SURI video when talking
+// Actualizar solo el color del borde del avatar según severidad
+function setAvatarSeverity(severity) {
+  if (!elements.suriAvatar) return;
+  // Eliminar todas las clases de severidad anteriores
+  elements.suriAvatar.classList.remove(
+    'sev-idle', 'sev-critical', 'sev-high', 'sev-medium', 'sev-low', 'sev-info'
+  );
+  elements.suriAvatar.classList.add(`sev-${severity}`);
+}
+
+// Activar modo talking en el video y poner borde del color de la severidad
 function playSuriTalking(severity) {
-  if (!elements.suriAvatar || !elements.avatarVideo) return;
-  
+  if (!elements.suriAvatar) return;
+
+  // Actualizar borde a color de la alerta
+  setAvatarSeverity(severity || 'idle');
+
+  // Cambiar video a modo talking
+  setVideoTalking();
+
+  // Después de 6s, volver a idle
   clearTimeout(dialogueTimeout);
-  
-  // Add talking class for visual effect
-  elements.suriAvatar.classList.add('talking');
-  
-  // Play video from talking section
-  if (elements.avatarVideo) {
-    elements.avatarVideo.currentTime = 2.0;
-    elements.avatarVideo.play();
-    elements.avatarVideo.playbackRate = 1.0;
-    
-    const loopSection = () => {
-      if (elements.avatarVideo.currentTime >= 6.0) {
-        elements.avatarVideo.currentTime = 2.0;
-      }
-    };
-    elements.avatarVideo.ontimeupdate = loopSection;
-  }
-  
-  // Stop after delay
   dialogueTimeout = setTimeout(() => {
-    if (elements.suriAvatar) {
-      elements.suriAvatar.classList.remove('talking');
-    }
-    if (elements.avatarVideo) {
-      elements.avatarVideo.ontimeupdate = null;
-      elements.avatarVideo.pause();
-      elements.avatarVideo.currentTime = 0;
-    }
-  }, 5000);
+    setVideoIdle();
+    // El borde vuelve a idle después de 1s adicional (para suavizar)
+    setTimeout(() => setAvatarSeverity('idle'), 1000);
+  }, 6000);
 }
 
 // Reiniciar métricas
 async function resetMetrics() {
   try {
     await fetch('/api/reset', { method: 'POST' });
+    allAlerts = [];
+    alertTimestamps = [];
     showNotification('>> SYSTEM RESET COMPLETE');
   } catch (error) {
     showNotification('>> ERROR: RESET FAILED');
   }
 }
 
-// Notificación
+// Notificación simple
 function showNotification(message) {
   const toast = document.createElement('div');
   toast.className = 'toast info';
-  toast.innerHTML = `<span class="toast-message">${message}</span>`;
+  toast.innerHTML = `<div class="toast-icon">i</div><div class="toast-body"><div class="toast-signature">${message}</div></div>`;
   elements.toastContainer.appendChild(toast);
-  setTimeout(() => toast.remove(), 3000);
+  setTimeout(() => {
+    toast.classList.add('fadeout');
+    setTimeout(() => toast.remove(), 400);
+  }, 3000);
 }
 
 // Utilidades
 function updateTime() {
-  elements.currentTime.textContent = new Date().toLocaleTimeString('es-ES');
+  if (elements.currentTime) {
+    elements.currentTime.textContent = new Date().toLocaleTimeString('es-ES', { hour12: false });
+  }
 }
 
 function animateValue(element, start, end, duration) {
-  if (start === end) return;
+  if (!element || isNaN(start) || isNaN(end) || start === end) {
+    if (element) element.textContent = formatNumber(end);
+    return;
+  }
 
   const range = end - start;
   const startTime = performance.now();
@@ -674,5 +826,5 @@ function escapeHtml(text) {
 
 function truncate(text, length) {
   if (!text) return '';
-  return text.length > length ? text.substring(0, length) + '...' : text;
+  return text.length > length ? text.substring(0, length) + '…' : text;
 }
