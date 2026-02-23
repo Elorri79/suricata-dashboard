@@ -85,6 +85,7 @@ app.get('/api/test/start', (req, res) => {
   
   testInterval = setInterval(() => {
     const severity = severities[Math.floor(Math.random() * severities.length)];
+    const hour = new Date().getHours();
     
     const alert = {
       timestamp: new Date().toISOString(),
@@ -107,9 +108,22 @@ app.get('/api/test/start', (req, res) => {
     metrics.recentAlerts.unshift(alert);
     if (metrics.recentAlerts.length > 100) metrics.recentAlerts.pop();
     
+    // Update timeline
+    const hourStr = `${hour.toString().padStart(2, '0')}:00`;
+    const existingHour = metrics.alertsTimeline.find(h => h.hour === hourStr);
+    if (existingHour) {
+      existingHour.count++;
+    } else {
+      metrics.alertsTimeline.push({ hour: hourStr, count: 1 });
+    }
+    // Keep only last 24 hours
+    if (metrics.alertsTimeline.length > 24) {
+      metrics.alertsTimeline.shift();
+    }
+    
     io.emit('newAlert', alert);
     console.log(`Alerta: ${severity.toUpperCase()} - ${alert.signature}`);
-  }, 2000);
+  }, 300000);
   
   res.json({ status: 'started', message: 'Inyectando alertas cada 2 segundos' });
 });
@@ -153,6 +167,16 @@ app.get('/api/test/:severity', (req, res) => {
   metrics.topSignatures[alert.signature] = (metrics.topSignatures[alert.signature] || 0) + 1;
   metrics.recentAlerts.unshift(alert);
   if (metrics.recentAlerts.length > 100) metrics.recentAlerts.pop();
+  
+  // Update timeline
+  const hour = new Date().getHours();
+  const hourStr = `${hour.toString().padStart(2, '0')}:00`;
+  const existingHour = metrics.alertsTimeline.find(h => h.hour === hourStr);
+  if (existingHour) {
+    existingHour.count++;
+  } else {
+    metrics.alertsTimeline.push({ hour: hourStr, count: 1 });
+  }
   
   io.emit('newAlert', alert);
   

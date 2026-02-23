@@ -668,10 +668,16 @@ function updateProtocolChart(protocolData) {
 }
 
 function updateTimelineChart(timelineData) {
-  if (!timelineData || timelineData.length === 0) return;
+  if (!timelineChart) return;
+  if (!timelineData || timelineData.length === 0) {
+    timelineChart.data.labels = [];
+    timelineChart.data.datasets[0].data = [];
+    timelineChart.update();
+    return;
+  }
   timelineChart.data.labels = timelineData.map(d => d.hour);
   timelineChart.data.datasets[0].data = timelineData.map(d => d.count);
-  timelineChart.update('none');
+  timelineChart.update();
 }
 
 // Listas
