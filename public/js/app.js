@@ -27,8 +27,107 @@ const elements = {
   speechMeta: document.getElementById('speech-meta'),
   speechContent: document.getElementById('speech-content'),
   threatLevel: document.getElementById('threat-level-text'),
-  alertsPerMin: document.getElementById('alerts-per-min')
+  alertsPerMin: document.getElementById('alerts-per-min'),
+  threatFill: document.getElementById('threat-fill'),
+  threatValue: document.getElementById('threat-value'),
+  systemPulse: document.getElementById('system-pulse'),
+  matrixBg: document.getElementById('matrix-bg')
 };
+
+// Matrix Rain Effect
+function initMatrix() {
+  const canvas = elements.matrixBg;
+  if (!canvas) return;
+  
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  
+  const chars = '01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン';
+  const fontSize = 14;
+  const columns = Math.floor(canvas.width / fontSize);
+  const drops = Array(columns).fill(1);
+  
+  function draw() {
+    ctx.fillStyle = 'rgba(2, 5, 7, 0.05)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.fillStyle = '#00e5ff';
+    ctx.font = fontSize + 'px monospace';
+    
+    for (let i = 0; i < drops.length; i++) {
+      const char = chars[Math.floor(Math.random() * chars.length)];
+      const x = i * fontSize;
+      const y = drops[i] * fontSize;
+      
+      ctx.fillStyle = `rgba(0, 229, 255, ${Math.random() * 0.5 + 0.1})`;
+      ctx.fillText(char, x, y);
+      
+      if (y > canvas.height && Math.random() > 0.975) {
+        drops[i] = 0;
+      }
+      drops[i]++;
+    }
+  }
+  
+  setInterval(draw, 50);
+  
+  window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  });
+}
+
+// Threat Level Calculator
+function calculateThreatLevel(data) {
+  const critical = data.alertsBySeverity?.critical || 0;
+  const high = data.alertsBySeverity?.high || 0;
+  const medium = data.alertsBySeverity?.medium || 0;
+  const low = data.alertsBySeverity?.low || 0;
+  const total = data.totalAlerts || 0;
+  
+  if (total === 0) return { level: 'LOW', percent: 5, class: '' };
+  
+  const threatScore = (critical * 100) + (high * 50) + (medium * 20) + (low * 5);
+  const maxScore = Math.max(total * 10, 100);
+  const percent = Math.min(Math.round((threatScore / maxScore) * 100), 100);
+  
+  let level, className;
+  if (percent >= 75) {
+    level = 'CRITICAL';
+    className = 'critical';
+  } else if (percent >= 50) {
+    level = 'HIGH';
+    className = 'high';
+  } else if (percent >= 25) {
+    level = 'MEDIUM';
+    className = 'medium';
+  } else {
+    level = 'LOW';
+    className = '';
+  }
+  
+  return { level, percent, class: className };
+}
+
+function updateThreatLevel(data) {
+  if (!elements.threatFill || !elements.threatValue) return;
+  
+  const threat = calculateThreatLevel(data);
+  
+  elements.threatFill.style.width = threat.percent + '%';
+  elements.threatFill.className = 'threat-fill ' + threat.class;
+  elements.threatValue.textContent = threat.level;
+  elements.threatValue.className = 'threat-value ' + threat.class;
+  
+  if (threat.class === 'critical' || threat.class === 'high') {
+    elements.systemPulse?.classList.add('alert');
+    document.body.classList.add('alert-flash');
+    setTimeout(() => document.body.classList.remove('alert-flash'), 300);
+  } else {
+    elements.systemPulse?.classList.remove('alert');
+  }
+}
 
 // APS tracking
 let alertTimestamps = [];
@@ -56,8 +155,8 @@ let severityChart, protocolChart, timelineChart;
 // Alertas para filtrado
 let allAlerts = [];
 
-// Inicializar
 document.addEventListener('DOMContentLoaded', () => {
+  initMatrix();
   initCharts();
   initEventListeners();
   initSuriAvatar();
@@ -65,6 +164,12 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(updateTime, 1000);
   setInterval(updateAPS, 1000);
   connectSocket();
+  
+  setTimeout(() => {
+    if (severityChart) severityChart.update();
+    if (protocolChart) protocolChart.update();
+    if (timelineChart) timelineChart.update();
+  }, 100);
 });
 
 // ─── Video state machine ────────────────────────────────────────────────
@@ -79,8 +184,27 @@ const VIDEO_TALK_END = 6.0;
 
 const videoState = {
   mode: 'idle',      // 'idle' | 'talking'
-  loopHandler: null  // referencia al listener de timeupdate activo
+  loopHandler: null,  // referencia al listener de timeupdate activo
+  currentVideo: null  // video actualmente cargado
 };
+
+function getVideoForSeverity(severity) {
+  if (severity === 'critical') return '/videos/critical.mp4';
+  if (severity === 'low' || severity === 'info') return '/videos/ok.mp4';
+  return '/videos/medium.mp4';
+}
+
+function changeVideo(severity) {
+  const video = elements.avatarVideo;
+  if (!video) return;
+  
+  const newSrc = getVideoForSeverity(severity);
+  if (videoState.currentVideo === newSrc) return;
+  
+  videoState.currentVideo = newSrc;
+  video.src = newSrc;
+  video.load();
+}
 
 function setVideoLoop(startTime, endTime) {
   const video = elements.avatarVideo;
@@ -135,13 +259,13 @@ function initSuriAvatar() {
   if (!video) return;
 
   video.muted = true;
-  video.loop = false;  // el loop lo gestionamos nosotros
+  video.loop = false;
   video.playsInline = true;
+  videoState.currentVideo = '/videos/ok.mp4';
 
   video.addEventListener('loadedmetadata', () => {
-    // Saltamos directamente al inicio del idle para evitar el "salto"
     video.currentTime = VIDEO_IDLE_START;
-    setVideoIdle(true);  // force=true: siempre configurar el loop, aunque mode ya sea 'idle'
+    setVideoIdle(true);
   });
 
   video.addEventListener('canplay', () => {
@@ -198,6 +322,25 @@ function initSuriAvatar() {
   if (video.readyState >= 2) {
     video.currentTime = VIDEO_IDLE_START;
     setVideoIdle(true);  // force=true para garantizar que se instala el handler
+  }
+  
+  // Parallax effect on mouse move
+  const avatarFrame = elements.suriAvatar;
+  if (avatarFrame) {
+    document.addEventListener('mousemove', (e) => {
+      const rect = avatarFrame.getBoundingClientRect();
+      const x = e.clientX - rect.left - rect.width / 2;
+      const y = e.clientY - rect.top - rect.height / 2;
+      
+      const tiltX = y * 0.02;
+      const tiltY = -x * 0.02;
+      
+      avatarFrame.style.transform = `perspective(1000px) rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
+    });
+    
+    document.addEventListener('mouseleave', () => {
+      avatarFrame.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg)';
+    });
   }
 }
 
@@ -430,6 +573,9 @@ function updateDashboard(data) {
   animateValue(elements.lowCount, parseInt(elements.lowCount.textContent.replace(/\./g, '').replace(/,/g, '')) || 0, data.alertsBySeverity.low, 400);
   animateValue(elements.infoCount, parseInt(elements.infoCount.textContent.replace(/\./g, '').replace(/,/g, '')) || 0, data.alertsBySeverity.info, 400);
 
+  // Actualizar nivel de amenaza
+  updateThreatLevel(data);
+  
   // Actualizar gráficos
   updateSeverityChart(data.alertsBySeverity);
   updateProtocolChart(data.alertsByProtocol);
@@ -497,6 +643,7 @@ function updateAPS() {
 
 // Gráficos
 function updateSeverityChart(severityData) {
+  if (!severityChart) return;
   severityChart.data.datasets[0].data = [
     severityData.critical || 0,
     severityData.high || 0,
@@ -504,10 +651,11 @@ function updateSeverityChart(severityData) {
     severityData.low || 0,
     severityData.info || 0
   ];
-  severityChart.update('none');
+  severityChart.update();
 }
 
 function updateProtocolChart(protocolData) {
+  if (!protocolChart) return;
   protocolChart.data.datasets[0].data = [
     protocolData.TCP || 0,
     protocolData.UDP || 0,
@@ -516,7 +664,7 @@ function updateProtocolChart(protocolData) {
     protocolData.HTTPS || 0,
     protocolData.DNS || 0
   ];
-  protocolChart.update('none');
+  protocolChart.update();
 }
 
 function updateTimelineChart(timelineData) {
@@ -730,17 +878,31 @@ function setAvatarSeverity(severity) {
 function playSuriTalking(severity) {
   if (!elements.suriAvatar) return;
 
-  // Actualizar borde a color de la alerta
   setAvatarSeverity(severity || 'idle');
 
-  // Cambiar video a modo talking
-  setVideoTalking();
+  changeVideo(severity || 'info');
 
-  // Después de 6s, volver a idle
+  const video = elements.avatarVideo;
+  if (video) {
+    video.onloadeddata = () => {
+      video.currentTime = VIDEO_TALK_START;
+      setVideoTalking();
+      video.onloadeddata = null;
+    };
+    video.load();
+  }
+
   clearTimeout(dialogueTimeout);
   dialogueTimeout = setTimeout(() => {
-    setVideoIdle();
-    // El borde vuelve a idle después de 1s adicional (para suavizar)
+    changeVideo('info');
+    const video = elements.avatarVideo;
+    if (video) {
+      video.onloadeddata = () => {
+        setVideoIdle();
+        video.onloadeddata = null;
+      };
+      video.load();
+    }
     setTimeout(() => setAvatarSeverity('idle'), 1000);
   }, 6000);
 }

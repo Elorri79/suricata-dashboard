@@ -15,12 +15,26 @@
 <body>
   <!-- Background Grid Animation -->
   <div class="grid-scan"></div>
+  
+  <!-- Matrix Rain Background -->
+  <canvas id="matrix-bg" class="matrix-bg"></canvas>
+  
+  <!-- Radar Animation -->
+  <div class="radar-container">
+    <div class="radar">
+      <div class="radar-sweep"></div>
+      <div class="radar-rings">
+        <span></span><span></span><span></span><span></span>
+      </div>
+      <div class="radar-center"></div>
+    </div>
+  </div>
 
   <div class="dashboard">
     <!-- Header - Command Deck -->
     <header class="header">
       <div class="header-left">
-        <h1>
+        <h1 class="glitch" data-text="SURICATA IDS">
           <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M12 2L2 7l10 5 10-5-10-5z" />
             <path d="M2 17l10 5 10-5" />
@@ -29,16 +43,28 @@
           SURICATA IDS
         </h1>
         <span class="status-indicator">
-          <span class="pulse"></span>
+          <span class="pulse" id="system-pulse"></span>
           <span id="connection-status">ONLINE</span>
         </span>
         <div class="header-meta">
           <span class="meta-label">BUILD</span>
-          <span class="meta-value">2.4.1</span>
+          <span class="meta-value">2.5.0</span>
         </div>
       </div>
       <div class="header-center">
         <span class="time" id="current-time">--:--:--</span>
+      </div>
+      
+      <!-- Threat Level Bar -->
+      <div class="threat-level-container">
+        <div class="threat-label">THREAT LEVEL</div>
+        <div class="threat-bar">
+          <div class="threat-fill" id="threat-fill"></div>
+          <div class="threat-markers">
+            <span>0</span><span>25</span><span>50</span><span>75</span><span>100</span>
+          </div>
+        </div>
+        <div class="threat-value" id="threat-value">LOW</div>
       </div>
       <div class="header-right">
         <div class="kpi-pill">
@@ -159,7 +185,7 @@
           <div class="android-avatar-section">
             <div class="suri-avatar-frame" id="suri-avatar">
               <video id="avatar-video" autoplay loop muted playsinline>
-                <source src="/videos/avatar.mp4" type="video/mp4">
+                <source src="/videos/ok.mp4" type="video/mp4">
               </video>
               <div class="avatar-overlay"></div>
             </div>

@@ -1,7 +1,6 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const fs = require('fs');
 const path = require('path');
 
 const app = express();
@@ -59,6 +58,105 @@ app.get('/api/metrics', (req, res) => {
 app.get('/api/alerts', (req, res) => {
   const limit = parseInt(req.query.limit) || 50;
   res.json(metrics.recentAlerts.slice(0, limit));
+});
+
+// API: Test - inyectar alertas aleatorias cada 2 segundos
+let testInterval = null;
+
+app.get('/api/test/start', (req, res) => {
+  if (testInterval) {
+    return res.json({ status: 'already running' });
+  }
+  
+  const severities = ['critical', 'high', 'medium', 'low', 'info'];
+  const signatures = [
+    'ET MALWARE C2 Traffic',
+    'SQL Injection Attempt Detected',
+    'Port Scan Activity',
+    'Suspicious User-Agent',
+    'Brute Force Attack',
+    'DDoS Attack Pattern',
+    'Malware Download Detected',
+    'Phishing Site Access',
+    'SSH Brute Force',
+    'DNS Tunneling Activity'
+  ];
+  const protocols = ['TCP', 'UDP', 'HTTP', 'HTTPS', 'ICMP'];
+  
+  testInterval = setInterval(() => {
+    const severity = severities[Math.floor(Math.random() * severities.length)];
+    
+    const alert = {
+      timestamp: new Date().toISOString(),
+      severity: severity,
+      signature: signatures[Math.floor(Math.random() * signatures.length)] + ' - ' + severity.toUpperCase(),
+      source_ip: `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
+      source_port: Math.floor(Math.random() * 65535),
+      dest_ip: `10.0.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
+      dest_port: [80, 443, 22, 3389, 53, 8080][Math.floor(Math.random() * 6)],
+      protocol: protocols[Math.floor(Math.random() * protocols.length)]
+    };
+    
+    metrics.totalAlerts++;
+    metrics.alertsBySeverity[severity]++;
+    const proto = alert.protocol;
+    metrics.alertsByProtocol[proto] = (metrics.alertsByProtocol[proto] || 0) + 1;
+    metrics.alertsBySourceIP[alert.source_ip] = (metrics.alertsBySourceIP[alert.source_ip] || 0) + 1;
+    metrics.alertsByDestIP[alert.dest_ip] = (metrics.alertsByDestIP[alert.dest_ip] || 0) + 1;
+    metrics.topSignatures[alert.signature] = (metrics.topSignatures[alert.signature] || 0) + 1;
+    metrics.recentAlerts.unshift(alert);
+    if (metrics.recentAlerts.length > 100) metrics.recentAlerts.pop();
+    
+    io.emit('newAlert', alert);
+    console.log(`Alerta: ${severity.toUpperCase()} - ${alert.signature}`);
+  }, 2000);
+  
+  res.json({ status: 'started', message: 'Inyectando alertas cada 2 segundos' });
+});
+
+app.get('/api/test/stop', (req, res) => {
+  if (testInterval) {
+    clearInterval(testInterval);
+    testInterval = null;
+    res.json({ status: 'stopped' });
+  } else {
+    res.json({ status: 'not running' });
+  }
+});
+
+// API: Test - inyectar alerta falsa
+app.get('/api/test/:severity', (req, res) => {
+  const severity = req.params.severity;
+  const validSeverities = ['critical', 'high', 'medium', 'low', 'info'];
+  
+  if (!validSeverities.includes(severity)) {
+    return res.status(400).json({ error: 'Severidad inválida. Usa: critical, high, medium, low, info' });
+  }
+  
+  const alert = {
+    timestamp: new Date().toISOString(),
+    severity: severity,
+    signature: `TEST ALERT - ${severity.toUpperCase()} - ${Date.now()}`,
+    source_ip: `192.168.1.${Math.floor(Math.random() * 255)}`,
+    source_port: Math.floor(Math.random() * 65535),
+    dest_ip: `10.0.0.${Math.floor(Math.random() * 255)}`,
+    dest_port: [80, 443, 22, 3389][Math.floor(Math.random() * 4)],
+    protocol: ['TCP', 'UDP', 'HTTP'][Math.floor(Math.random() * 3)]
+  };
+  
+  metrics.totalAlerts++;
+  metrics.alertsBySeverity[severity]++;
+  metrics.alertsByProtocol[alert.protocol] = metrics.alertsByProtocol[alert.protocol] || 0;
+  metrics.alertsByProtocol[alert.protocol]++;
+  metrics.alertsBySourceIP[alert.source_ip] = (metrics.alertsBySourceIP[alert.source_ip] || 0) + 1;
+  metrics.alertsByDestIP[alert.dest_ip] = (metrics.alertsByDestIP[alert.dest_ip] || 0) + 1;
+  metrics.topSignatures[alert.signature] = (metrics.topSignatures[alert.signature] || 0) + 1;
+  metrics.recentAlerts.unshift(alert);
+  if (metrics.recentAlerts.length > 100) metrics.recentAlerts.pop();
+  
+  io.emit('newAlert', alert);
+  
+  res.json({ success: true, alert });
 });
 
 // API: Reiniciar métricas

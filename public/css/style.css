@@ -773,20 +773,20 @@ body::after {
 
 /* ================================================
    AI CO-PILOT PANEL
-   ================================================ */
+    ================================================ */
 .android-panel-compact {
   display: flex;
   flex-direction: column;
-  height: 420px;
+  height: 620px !important;
 }
 
 .android-compact-layout {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 20px;
   flex: 1;
   overflow: hidden;
-  padding: 6px 0;
+  padding: 10px 0;
 }
 
 .android-avatar-section {
@@ -799,23 +799,26 @@ body::after {
 
 /* SURI Avatar — severity-reactive border */
 .suri-avatar-frame {
-  width: 220px;
-  height: 300px;
+  width: 350px !important;
+  height: 500px !important;
   background: #000;
   border: 2px solid rgba(0, 229, 255, 0.5);
   border-radius: 16px;
   overflow: hidden;
   position: relative;
   box-shadow: var(--glow-cyan);
-  transition: border-color 0.5s ease, box-shadow 0.5s ease;
+  transition: transform 0.1s ease, border-color 0.5s ease, box-shadow 0.5s ease;
   flex-shrink: 0;
+  transform-style: preserve-3d;
+  perspective: 1000px;
+}
 }
 
 .suri-avatar-frame video {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  object-position: center top;
+  object-fit: contain;
+  object-position: center center;
 }
 
 .avatar-overlay {
@@ -953,10 +956,11 @@ body::after {
   border-radius: 14px;
   padding: 18px 20px;
   width: 100%;
-  min-height: 160px;
+  min-height: 180px;
+  max-height: 200px;
   box-shadow: var(--glow-cyan);
   transition: border-color 0.3s, box-shadow 0.3s;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .speech-bubble.compact::before {
@@ -1604,6 +1608,7 @@ body::after {
 
   .android-panel-compact {
     grid-column: span 2;
+    height: 480px;
   }
 
   .chart-card:not(.android-panel-compact) {
@@ -1611,8 +1616,39 @@ body::after {
   }
 
   .suri-avatar-frame {
-    width: 160px;
-    height: 210px;
+    width: 220px;
+    height: 320px;
+  }
+}
+
+@media (max-width: 1150px) {
+  .charts-row {
+    grid-template-columns: 1fr;
+  }
+
+  .android-panel-compact {
+    grid-column: span 1;
+    height: 450px;
+  }
+
+  .android-compact-layout {
+    flex-direction: row;
+    gap: 24px;
+  }
+
+  .suri-avatar-frame {
+    width: 180px;
+    height: 280px;
+  }
+}
+
+  .chart-card:not(.android-panel-compact) {
+    min-height: 260px;
+  }
+
+  .suri-avatar-frame {
+    width: 200px;
+    height: 280px;
   }
 }
 
@@ -1631,8 +1667,8 @@ body::after {
   }
 
   .suri-avatar-frame {
-    width: 150px;
-    height: 190px;
+    width: 180px;
+    height: 250px;
   }
 
   .chart-card:not(.android-panel-compact) {
@@ -1719,11 +1755,12 @@ body::after {
   .android-compact-layout {
     flex-direction: column;
     align-items: flex-start;
+    gap: 15px;
   }
 
   .suri-avatar-frame {
     width: 100%;
-    height: 200px;
+    height: 360px;
   }
 
   .chart-card {
@@ -1875,4 +1912,345 @@ body::after {
   100% {
     transform: translateY(200%);
   }
+}
+
+/* ========================================
+   ENHANCED EFFECTS
+   ======================================== */
+
+/* Matrix Rain Background */
+.matrix-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.03;
+}
+
+/* Radar Container */
+.radar-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 180px;
+  height: 180px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.radar {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 229, 255, 0.02) 0%, transparent 70%);
+  border: 1px solid rgba(0, 229, 255, 0.15);
+}
+
+.radar-sweep {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 50%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--neon-cyan), var(--neon-cyan));
+  transform-origin: left center;
+  animation: radarSweep 3s linear infinite;
+  box-shadow: 0 0 10px var(--neon-cyan), 0 0 20px var(--neon-cyan);
+}
+
+.radar-rings {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.radar-rings span {
+  position: absolute;
+  border: 1px solid rgba(0, 229, 255, 0.1);
+  border-radius: 50%;
+}
+
+.radar-rings span:nth-child(1) { width: 40%; height: 40%; }
+.radar-rings span:nth-child(2) { width: 60%; height: 60%; }
+.radar-rings span:nth-child(3) { width: 80%; height: 80%; }
+.radar-rings span:nth-child(4) { width: 100%; height: 100%; }
+
+.radar-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  background: var(--neon-cyan);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: var(--glow-cyan);
+}
+
+@keyframes radarSweep {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Glitch Effect */
+.glitch {
+  position: relative;
+}
+
+.glitch::before,
+.glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-deep);
+}
+
+.glitch::before {
+  left: 2px;
+  text-shadow: -1px 0 var(--neon-red);
+  clip: rect(24px, 550px, 90px, 0);
+  animation: glitch-anim-1 2.5s infinite linear alternate-reverse;
+}
+
+.glitch::after {
+  left: -2px;
+  text-shadow: -1px 0 var(--neon-cyan);
+  clip: rect(85px, 550px, 140px, 0);
+  animation: glitch-anim-2 3s infinite linear alternate-reverse;
+}
+
+@keyframes glitch-anim-1 {
+  0% { clip: rect(20px, 9999px, 80px, 0); }
+  20% { clip: rect(60px, 9999px, 100px, 0); }
+  40% { clip: rect(10px, 9999px, 50px, 0); }
+  60% { clip: rect(80px, 9999px, 120px, 0); }
+  80% { clip: rect(30px, 9999px, 70px, 0); }
+  100% { clip: rect(50px, 9999px, 90px, 0); }
+}
+
+@keyframes glitch-anim-2 {
+  0% { clip: rect(60px, 9999px, 100px, 0); }
+  20% { clip: rect(10px, 9999px, 50px, 0); }
+  40% { clip: rect(80px, 9999px, 120px, 0); }
+  50% { clip: rect(30px, 9999px, 70px, 0); }
+  60% { clip: rect(90px, 9999px, 130px, 0); }
+  80% { clip: rect(15px, 9999px, 55px, 0); }
+  100% { clip: rect(55px, 9999px, 95px, 0); }
+}
+
+/* Threat Level Bar */
+.threat-level-container {
+  position: absolute;
+  bottom: -50px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 8px 20px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  border-radius: 4px;
+}
+
+.threat-label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.6rem;
+  color: var(--text-secondary);
+  letter-spacing: 2px;
+}
+
+.threat-bar {
+  width: 200px;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+.threat-fill {
+  height: 100%;
+  width: 10%;
+  background: linear-gradient(90deg, var(--neon-green), var(--neon-cyan));
+  border-radius: 3px;
+  transition: width 0.5s ease, background 0.5s ease;
+  box-shadow: 0 0 10px var(--neon-cyan);
+}
+
+.threat-fill.medium {
+  background: linear-gradient(90deg, var(--neon-yellow), var(--neon-orange));
+  box-shadow: 0 0 10px var(--neon-orange);
+}
+
+.threat-fill.high {
+  background: linear-gradient(90deg, var(--neon-orange), var(--neon-red));
+  box-shadow: 0 0 15px var(--neon-red);
+}
+
+.threat-fill.critical {
+  background: linear-gradient(90deg, var(--neon-red), #ff0000);
+  box-shadow: 0 0 20px var(--neon-red);
+  animation: threatPulse 0.5s ease infinite;
+}
+
+.threat-markers {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 2px;
+  pointer-events: none;
+}
+
+.threat-markers span {
+  font-size: 0.5rem;
+  color: var(--text-dim);
+}
+
+.threat-value {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--neon-green);
+  min-width: 60px;
+  text-align: center;
+  text-shadow: 0 0 8px var(--neon-green);
+}
+
+.threat-value.medium {
+  color: var(--neon-orange);
+  text-shadow: 0 0 8px var(--neon-orange);
+}
+
+.threat-value.high {
+  color: var(--neon-red);
+  text-shadow: 0 0 10px var(--neon-red);
+}
+
+.threat-value.critical {
+  color: #ff0000;
+  text-shadow: 0 0 15px #ff0000;
+  animation: threatTextPulse 0.3s ease infinite;
+}
+
+@keyframes threatPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes threatTextPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+/* System Pulse (heartbeat) */
+#system-pulse {
+  animation: heartbeat 1s ease infinite;
+}
+
+@keyframes heartbeat {
+  0%, 100% { 
+    transform: scale(1);
+    box-shadow: 0 0 8px var(--neon-green);
+  }
+  15% { 
+    transform: scale(1.3);
+    box-shadow: 0 0 15px var(--neon-green), 0 0 25px var(--neon-green);
+  }
+  30% { 
+    transform: scale(1);
+    box-shadow: 0 0 8px var(--neon-green);
+  }
+  45% { 
+    transform: scale(1.2);
+    box-shadow: 0 0 12px var(--neon-green);
+  }
+  60% { 
+    transform: scale(1);
+    box-shadow: 0 0 8px var(--neon-green);
+  }
+}
+
+#system-pulse.alert {
+  animation: heartbeatAlert 0.4s ease infinite;
+}
+
+@keyframes heartbeatAlert {
+  0%, 100% { 
+    transform: scale(1);
+    background: var(--neon-red);
+    box-shadow: 0 0 8px var(--neon-red);
+  }
+  50% { 
+    transform: scale(1.5);
+    background: #ff0000;
+    box-shadow: 0 0 20px var(--neon-red), 0 0 30px var(--neon-red);
+  }
+}
+
+/* Enhanced CRT Effect */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: 
+    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 0, 0, 0.1) 2px, rgba(0, 0, 0, 0.1) 4px),
+    repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0, 0, 0, 0.1) 2px, rgba(0, 0, 0, 0.1) 4px);
+  pointer-events: none;
+  z-index: 9999;
+  animation: crtFlicker 0.15s infinite;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.6) 100%);
+  pointer-events: none;
+  z-index: 9998;
+}
+
+@keyframes crtFlicker {
+  0% { opacity: 0.97; }
+  50% { opacity: 1; }
+  100% { opacity: 0.98; }
+}
+
+/* Alert Flash Effect */
+.alert-flash {
+  animation: alertFlash 0.3s ease;
+}
+
+@keyframes alertFlash {
+  0% { 
+    box-shadow: inset 0 0 0 0 transparent;
+  }
+  50% { 
+    box-shadow: inset 0 0 100px rgba(255, 0, 60, 0.3);
+    background: rgba(255, 0, 60, 0.05);
+  }
+  100% { 
+    box-shadow: inset 0 0 0 0 transparent;
+  }
+}
+
+/* Card hover glow enhancement */
+.stat-card.critical:hover {
+  box-shadow: 0 0 30px rgba(255, 0, 60, 0.4), inset 0 0 20px rgba(255, 0, 60, 0.1);
+}
+
+.stat-card.high:hover {
+  box-shadow: 0 0 25px rgba(255, 106, 0, 0.4), inset 0 0 15px rgba(255, 106, 0, 0.1);
 }

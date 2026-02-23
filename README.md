@@ -1,4 +1,4 @@
-# Suricata Dashboard - AI Monitor Edition
+# Suricata Dashboard - AI Monitor Edition v2.5.0
 
 A real-time cyberpunk-styled web dashboard for monitoring and visualizing Suricata IDS/IPS alerts with an interactive AI co-pilot named SURI.
 
@@ -20,11 +20,23 @@ Suricata Dashboard is a lightweight Node.js application that provides real-time 
   - Most triggered detection signatures
   - Top source IPs (attackers)
   - Top destination IPs (targets)
-- **Threat Radar**: Visual radar display showing threat activity
+- **Threat Level Bar**: Dynamic threat level indicator (LOW → CRITICAL)
+- **Threat Radar**: Animated radar display showing activity
 - **Alert Browser**: Recent alerts table with search functionality
 - **Toast Notifications**: Desktop notifications for new critical alerts
 - **RESTful API**: Programmatic access to metrics and alerts
 - **Responsive Design**: Adapts to any screen size
+
+### Visual Effects (NEW v2.5.0)
+
+- **Radar Animation**: Rotating radar scanner in corner
+- **Glitch Effect**: Cyberpunk glitch on title
+- **Matrix Rain**: Subtle binary code falling in background
+- **Threat Level Bar**: Real-time threat meter
+- **CRT Enhancement**: Improved retro screen effect
+- **Parallax Avatar**: 3D parallax effect on mouse movement
+- **Alert Flash**: Dramatic red flash on critical alerts
+- **System Pulse**: Heartbeat pulse indicator
 
 ## Quick Start
 
@@ -67,6 +79,24 @@ The dashboard will be available at: **http://localhost:3000**
 
 The application includes a built-in test data generator that creates realistic alert data, so you can see the dashboard in action immediately without configuring Suricata.
 
+### Test Endpoints:
+
+```bash
+# Start injecting random alerts every 2 seconds
+curl http://localhost:3000/api/test/start
+
+# Stop test injection
+curl http://localhost:3000/api/test/stop
+
+# Inject a specific severity alert
+curl http://localhost:3000/api/test/critical
+curl http://localhost:3000/api/test/high
+curl http://localhost:3000/api/test/medium
+
+# Reset all metrics
+curl -X POST http://localhost:3000/api/reset
+```
+
 ## What's New - SURI AI Monitor
 
 The latest version features **SURI**, an interactive AI co-pilot:
@@ -74,17 +104,18 @@ The latest version features **SURI**, an interactive AI co-pilot:
 - **Video Avatar**: A cyborg character that serves as your AI monitor
 - **Real-time Reactions**: SURI changes status based on detected threats
 - **Speech Bubble**: Shows the latest threat signature and source/destination IPs
+- **Parallax Effect**: 3D tilt effect on mouse movement
 - **Alert History**: Displays attack patterns and threat intelligence
 
 ### SURI Status Messages:
 
 | Status | Meaning |
 |--------|---------|
-| !! DANGER !! | Critical severity alert |
-| !! WARNING !! | High severity alert |
-| > ANALYZING | Medium severity alert |
-| > SCANNING | Low severity alert |
-| > MONITORING | Info severity / Normal |
+| ⚠ CRITICAL THREAT DETECTED | Critical severity alert |
+| ! HIGH SEVERITY ALERT | High severity alert |
+| > ANALYZING ANOMALY | Medium severity alert |
+| > SCANNING ACTIVITY | Low severity alert |
+| > MONITORING NETWORK | Info severity / Normal |
 | SURI ONLINE | System operational |
 
 ## REST API
@@ -95,13 +126,10 @@ The application exposes a RESTful API:
 |----------|--------|-------------|
 | `/api/metrics` | GET | Get current metrics and statistics |
 | `/api/alerts` | GET | Get recent alerts (supports `?limit=50`) |
+| `/api/test/start` | GET | Start test alert injection |
+| `/api/test/stop` | GET | Stop test alert injection |
+| `/api/test/:severity` | GET | Inject specific severity alert |
 | `/api/reset` | POST | Reset all metrics to zero |
-
-### Example:
-
-```bash
-curl http://localhost:3000/api/metrics
-```
 
 ## Integration with Suricata
 
@@ -138,15 +166,17 @@ npm start
 suricata-dashboard/
 ├── server.js              # Main server application
 ├── public/
-│   ├── index.html         # Main dashboard UI
+│   ├── index.html        # Main dashboard UI
 │   ├── css/
-│   │   └── style.css     # Cyberpunk dashboard styles
+│   │   └── style.css    # Cyberpunk dashboard styles
 │   ├── js/
-│   │   ├── app.js        # Frontend application logic
-│   │   └── chart.min.js  # Chart.js library
+│   │   ├── app.js       # Frontend application logic
+│   │   └── chart.min.js # Chart.js library
 │   └── videos/
-│       └── avatar.mp4    # SURI AI avatar video
-├── logs/                 # Default log directory
+│       ├── ok.mp4       # SURI idle/ok video
+│       ├── medium.mp4   # SURI medium alert video
+│       └── critical.mp4 # SURI critical alert video
+├── logs/                # Default log directory
 ├── package.json
 └── README.md
 ```
@@ -158,6 +188,9 @@ suricata-dashboard/
 
 ### Alert Details & SURI Reactions
 ![Alert Details](screenshot2.png)
+
+### Threat Analysis
+![Threat Analysis](screenshot3.png)
 
 ## Credits
 
