@@ -2,13 +2,15 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const fs = require('fs');
+const { spawn } = require('child_process');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
-const LOG_FILE = process.env.SURICATA_LOG || path.join(__dirname, 'logs', 'eve.json');
+const LOG_FILE = process.env.SURICATA_LOG || '/mnt/suricata-logs/eve.json';
 
 // Servir archivos estáticos
 app.use(express.static(path.join(__dirname, 'public')));
@@ -199,6 +201,109 @@ app.post('/api/reset', (req, res) => {
   res.json({ success: true });
 });
 
+// Función para procesar una línea del archivo eve.json
+function processAlert(line) {
+  try {
+    const event = JSON.parse(line);
+    
+    // Solo procesar eventos de tipo 'alert'
+    if (event.event_type !== 'alert') return;
+    
+    const alert = event.alert;
+    if (!alert) return;
+    
+    // Mapear severidad de Suricata (1=high, 2=medium, 3=low) a nuestro formato
+    let severity = 'info';
+    if (alert.severity <= 1) severity = 'critical';
+    else if (alert.severity === 2) severity = 'high';
+    else if (alert.severity === 3) severity = 'medium';
+    else severity = 'low';
+    
+    const processedAlert = {
+      timestamp: event.timestamp,
+      severity: severity,
+      signature: alert.signature || 'Unknown',
+      source_ip: event.src_ip || 'Unknown',
+      source_port: event.src_port || 0,
+      dest_ip: event.dest_ip || 'Unknown',
+      dest_port: event.dest_port || 0,
+      protocol: event.proto || 'Unknown'
+    };
+    
+    // Actualizar métricas
+    metrics.totalAlerts++;
+    metrics.alertsBySeverity[severity]++;
+    
+    const proto = processedAlert.protocol.toUpperCase();
+    metrics.alertsByProtocol[proto] = (metrics.alertsByProtocol[proto] || 0) + 1;
+    
+    metrics.alertsBySourceIP[processedAlert.source_ip] = (metrics.alertsBySourceIP[processedAlert.source_ip] || 0) + 1;
+    metrics.alertsByDestIP[processedAlert.dest_ip] = (metrics.alertsByDestIP[processedAlert.dest_ip] || 0) + 1;
+    metrics.topSignatures[processedAlert.signature] = (metrics.topSignatures[processedAlert.signature] || 0) + 1;
+    
+    metrics.recentAlerts.unshift(processedAlert);
+    if (metrics.recentAlerts.length > 100) metrics.recentAlerts.pop();
+    
+    // Update timeline
+    const date = new Date(processedAlert.timestamp);
+    const hour = date.getHours();
+    const hourStr = `${hour.toString().padStart(2, '0')}:00`;
+    const existingHour = metrics.alertsTimeline.find(h => h.hour === hourStr);
+    if (existingHour) {
+      existingHour.count++;
+    } else {
+      metrics.alertsTimeline.push({ hour: hourStr, count: 1 });
+    }
+    // Keep only last 24 hours
+    if (metrics.alertsTimeline.length > 24) {
+      metrics.alertsTimeline.shift();
+    }
+    
+    metrics.lastUpdate = new Date().toISOString();
+    
+    // Enviar alerta en tiempo real a todos los clientes conectados
+    io.emit('newAlert', processedAlert);
+    console.log(`Alerta: ${severity.toUpperCase()} - ${processedAlert.signature}`);
+    
+  } catch (error) {
+    // Ignorar líneas mal formateadas
+  }
+}
+
+// Leer el archivo eve.json en tiempo real usando tail -f
+function startTailing() {
+  console.log(`Monitoreando archivo: ${LOG_FILE}`);
+  
+  // Verificar si el archivo existe
+  if (!fs.existsSync(LOG_FILE)) {
+    console.error(`ERROR: El archivo ${LOG_FILE} no existe`);
+    console.log('Usando modo de prueba. Ejecuta: curl http://localhost:3000/api/test/start');
+    return;
+  }
+  
+  // Usar tail -f para leer nuevas líneas en tiempo real
+  const tail = spawn('tail', ['-f', '-n', '0', LOG_FILE]);
+  
+  tail.stdout.on('data', (data) => {
+    const lines = data.toString().split('\n');
+    lines.forEach(line => {
+      if (line.trim()) {
+        processAlert(line);
+      }
+    });
+  });
+  
+  tail.stderr.on('data', (data) => {
+    console.error(`Error en tail: ${data}`);
+  });
+  
+  tail.on('close', (code) => {
+    console.log(`tail process cerrado con código ${code}`);
+    // Reintentar después de 5 segundos
+    setTimeout(startTailing, 5000);
+  });
+}
+
 // WebSocket: Enviar actualizaciones en tiempo real
 io.on('connection', (socket) => {
   console.log('Cliente conectado');
@@ -227,4 +332,8 @@ io.on('connection', (socket) => {
 
 server.listen(PORT, () => {
   console.log(`Dashboard de Suricata ejecutándose en http://localhost:${PORT}`);
+  console.log(`Archivo de logs: ${LOG_FILE}`);
+  
+  // Iniciar monitoreo del archivo eve.json
+  startTailing();
 });
