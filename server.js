@@ -202,7 +202,7 @@ app.post('/api/reset', (req, res) => {
 });
 
 // Función para procesar una línea del archivo eve.json
-function processAlert(line) {
+function processAlert(line, emitWebSocket = true) {
   try {
     const event = JSON.parse(line);
     
@@ -261,12 +261,62 @@ function processAlert(line) {
     
     metrics.lastUpdate = new Date().toISOString();
     
-    // Enviar alerta en tiempo real a todos los clientes conectados
-    io.emit('newAlert', processedAlert);
-    console.log(`Alerta: ${severity.toUpperCase()} - ${processedAlert.signature}`);
+    // Enviar alerta en tiempo real a todos los clientes conectados (solo si es nueva)
+    if (emitWebSocket) {
+      io.emit('newAlert', processedAlert);
+      console.log(`Alerta: ${severity.toUpperCase()} - ${processedAlert.signature}`);
+    }
     
   } catch (error) {
     // Ignorar líneas mal formateadas
+  }
+}
+
+// Cargar alertas históricas del archivo
+function loadHistoricalAlerts() {
+  console.log('Cargando alertas históricas...');
+  
+  try {
+    const content = fs.readFileSync(LOG_FILE, 'utf8');
+    const lines = content.split('\n').filter(line => line.trim());
+    
+    // Procesar últimas 1000 líneas para no sobrecargar
+    const recentLines = lines.slice(-1000);
+    let alertCount = 0;
+    
+    recentLines.forEach(line => {
+      try {
+        const event = JSON.parse(line);
+        if (event.event_type === 'alert') {
+          processAlert(line, false); // false = no emitir eventos WebSocket
+          alertCount++;
+        }
+      } catch (e) {
+        // Ignorar líneas mal formateadas
+      }
+    });
+    
+    console.log(`${alertCount} alertas históricas cargadas`);
+    
+    // Emitir métricas iniciales a todos los clientes
+    io.emit('metrics', {
+      ...metrics,
+      topSignatures: Object.entries(metrics.topSignatures)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([sig, count]) => ({ signature: sig, count })),
+      topSourceIPs: Object.entries(metrics.alertsBySourceIP)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([ip, count]) => ({ ip, count })),
+      topDestIPs: Object.entries(metrics.alertsByDestIP)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([ip, count]) => ({ ip, count }))
+    });
+    
+  } catch (error) {
+    console.error(`Error cargando alertas históricas: ${error.message}`);
   }
 }
 
@@ -281,14 +331,17 @@ function startTailing() {
     return;
   }
   
-  // Usar tail -f para leer nuevas líneas en tiempo real
+  // Cargar alertas históricas primero
+  loadHistoricalAlerts();
+  
+  // Usar tail -f para leer nuevas líneas en tiempo real (desde ahora en adelante)
   const tail = spawn('tail', ['-f', '-n', '0', LOG_FILE]);
   
   tail.stdout.on('data', (data) => {
     const lines = data.toString().split('\n');
     lines.forEach(line => {
       if (line.trim()) {
-        processAlert(line);
+        processAlert(line, true); // true = emitir eventos WebSocket
       }
     });
   });
