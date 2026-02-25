@@ -165,6 +165,14 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(updateAPS, 1000);
   connectSocket();
   
+  // Polling periódico: refrescar métricas cada 10 segundos
+  setInterval(() => {
+    fetch('/api/metrics')
+      .then(res => res.json())
+      .then(data => updateDashboard(data))
+      .catch(err => console.error('Polling error:', err));
+  }, 10000);
+  
   setTimeout(() => {
     if (severityChart) severityChart.update();
     if (protocolChart) protocolChart.update();

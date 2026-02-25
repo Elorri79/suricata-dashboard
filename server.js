@@ -125,7 +125,7 @@ app.get('/api/test/start', (req, res) => {
     
     io.emit('newAlert', alert);
     console.log(`Alerta: ${severity.toUpperCase()} - ${alert.signature}`);
-  }, 300000);
+  }, 2000);
   
   res.json({ status: 'started', message: 'Inyectando alertas cada 2 segundos' });
 });
