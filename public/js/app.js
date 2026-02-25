@@ -623,6 +623,14 @@ function handleNewAlert(alert) {
   if (!elements.alertSearch.value) {
     updateAlertsTable(allAlerts.slice(0, 50));
   }
+
+  // Solicitar métricas actualizadas del servidor
+  fetch('/api/metrics')
+    .then(res => res.json())
+    .then(data => {
+      updateDashboard(data);
+    })
+    .catch(err => console.error('Error fetching metrics:', err));
 }
 
 // Calcular y mostrar APS (Alerts Per Second)
