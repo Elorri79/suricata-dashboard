@@ -1,0 +1,245 @@
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const path = require("path");
+const fs = require("fs");
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+
+const PORT = process.env.PORT || 3000;
+const LOG_FILE = process.env.SURICATA_LOG || "/mnt/suricata-logs/eve.json";
+
+app.use(express.static(path.join(__dirname, "public")));
+
+// Store latest metrics for frontend polling
+let latestMetrics = null;
+
+// Almacenar métricas en memoria
+let metrics = {
+  totalAlerts: 0,
+  alertsBySeverity: { critical: 0, high: 0, medium: 0, low: 0, info: 0 },
+  alertsByProtocol: { TCP: 0, UDP: 0, ICMP: 0, HTTP: 0, HTTPS: 0, DNS: 0 },
+  alertsBySourceIP: {},
+  alertsByDestIP: {},
+  recentAlerts: [],
+  alertsTimeline: [],
+  topSignatures: {},
+  lastUpdate: null
+};
+
+function emitMetrics() {
+  latestMetrics = {
+    ...metrics,
+    topSignatures: Object.entries(metrics.topSignatures).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([sig, count]) => ({ signature: sig, count })),
+    topSourceIPs: Object.entries(metrics.alertsBySourceIP).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([ip, count]) => ({ ip, count })),
+    topDestIPs: Object.entries(metrics.alertsByDestIP).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([ip, count]) => ({ ip, count }))
+  };
+  io.emit("metrics", latestMetrics);
+}
+
+// API: Obtener métricas actuales
+app.get("/api/metrics", (req, res) => {
+  if (latestMetrics) {
+    res.json(latestMetrics);
+  } else {
+    emitMetrics();
+    res.json(latestMetrics);
+  }
+});
+
+// API: Obtener alertas recientes
+app.get("/api/alerts", (req, res) => {
+  const limit = parseInt(req.query.limit) || 50;
+  res.json(metrics.recentAlerts.slice(0, limit));
+});
+
+// Función para procesar una línea del archivo eve.json
+function processAlert(line, emitWebSocket = true) {
+  try {
+    const event = JSON.parse(line);
+    
+    // Solo procesar eventos de tipo "alert"
+    if (event.event_type !== "alert") return;
+    
+    const alert = event.alert;
+    if (!alert) return;
+    
+    // Mapear severidad de Suricata (1=high, 2=medium, 3=low) a nuestro formato
+    let severity = "info";
+    if (alert.severity <= 1) severity = "critical";
+    else if (alert.severity === 2) severity = "high";
+    else if (alert.severity === 3) severity = "medium";
+    else severity = "low";
+    
+    const processedAlert = {
+      timestamp: event.timestamp,
+      severity: severity,
+      signature: alert.signature || "Unknown",
+      source_ip: event.src_ip || "Unknown",
+      source_port: event.src_port || 0,
+      dest_ip: event.dest_ip || "Unknown",
+      dest_port: event.dest_port || 0,
+      protocol: event.proto || "Unknown"
+    };
+    
+    // Actualizar métricas
+    metrics.totalAlerts++;
+    metrics.alertsBySeverity[severity]++;
+    
+    const proto = processedAlert.protocol.toUpperCase();
+    metrics.alertsByProtocol[proto] = (metrics.alertsByProtocol[proto] || 0) + 1;
+    
+    metrics.alertsBySourceIP[processedAlert.source_ip] = (metrics.alertsBySourceIP[processedAlert.source_ip] || 0) + 1;
+    metrics.alertsByDestIP[processedAlert.dest_ip] = (metrics.alertsByDestIP[processedAlert.dest_ip] || 0) + 1;
+    metrics.topSignatures[processedAlert.signature] = (metrics.topSignatures[processedAlert.signature] || 0) + 1;
+    
+    metrics.recentAlerts.unshift(processedAlert);
+    if (metrics.recentAlerts.length > 100) metrics.recentAlerts.pop();
+    
+    // Update timeline
+    const date = new Date(processedAlert.timestamp);
+    const hour = date.getHours();
+    const hourStr = hour.toString().padStart(2, "0") + ":00";
+    const existingHour = metrics.alertsTimeline.find(h => h.hour === hourStr);
+    if (existingHour) {
+      existingHour.count++;
+    } else {
+      metrics.alertsTimeline.push({ hour: hourStr, count: 1 });
+    }
+    // Keep only last 24 hours
+    if (metrics.alertsTimeline.length > 24) {
+      metrics.alertsTimeline.shift();
+    }
+    
+    metrics.lastUpdate = new Date().toISOString();
+    
+    // Enviar alerta en tiempo real a todos los clientes conectados (solo si es nueva)
+    if (emitWebSocket) {
+      io.emit("newAlert", processedAlert);
+      emitMetrics();
+      console.log("Alerta: " + severity.toUpperCase() + " - " + processedAlert.signature);
+    }
+    
+  } catch (error) {
+    // Ignorar líneas mal formateadas
+  }
+}
+
+// Variables for file polling
+let lastFileSize = 0;
+let lastFileBuffer = "";
+
+// Cargar alertas históricas del archivo
+function loadHistoricalAlerts() {
+  console.log("Cargando alertas históricas...");
+  
+  try {
+    if (!fs.existsSync(LOG_FILE)) {
+      console.log("ERROR: El archivo no existe");
+      return;
+    }
+    
+    const content = fs.readFileSync(LOG_FILE, "utf8");
+    const lines = content.split("\n").filter(line => line.trim());
+    
+    // Procesar últimas 5000 líneas para no sobrecargar
+    const recentLines = lines.slice(-5000);
+    let alertCount = 0;
+    
+    recentLines.forEach(line => {
+      try {
+        const event = JSON.parse(line);
+        if (event.event_type === "alert") {
+          processAlert(line, false); // false = no emitir eventos WebSocket
+          alertCount++;
+        }
+      } catch (e) {
+        // Ignorar líneas mal formateadas
+      }
+    });
+    
+    console.log(alertCount + " alertas históricas cargadas");
+    
+    // Emitir métricas iniciales a todos los clientes
+    emitMetrics();
+    
+    // Initialize file size
+    try {
+      const stats = fs.statSync(LOG_FILE);
+      lastFileSize = stats.size;
+      console.log("Tamaño inicial del archivo: " + lastFileSize + " bytes");
+    } catch (e) {
+      console.error("Error obteniendo tamaño del archivo: " + e.message);
+    }
+    
+  } catch (error) {
+    console.error("Error cargando alertas: " + error.message);
+  }
+}
+
+// Polling cada 3 segundos para nuevas líneas
+setInterval(() => {
+  try {
+    if (!fs.existsSync(LOG_FILE)) return;
+    
+    const stats = fs.statSync(LOG_FILE);
+    const currentSize = stats.size;
+    
+    if (currentSize > lastFileSize) {
+      // Leer solo los bytes nuevos
+      const fd = fs.openSync(LOG_FILE, "r");
+      const bytesToRead = currentSize - lastFileSize;
+      const buffer = Buffer.alloc(bytesToRead);
+      fs.readSync(fd, buffer, 0, bytesToRead, lastFileSize);
+      fs.closeSync(fd);
+      
+      // Combinar con buffer parcial anterior (línea incompleta)
+      const newData = lastFileBuffer + buffer.toString("utf8");
+      const lines = newData.split("\n");
+      
+      // La última línea puede estar incompleta, guardarla para la próxima lectura
+      lastFileBuffer = lines.pop() || "";
+      
+      lines.forEach(line => {
+        if (line.trim()) {
+          processAlert(line, true);
+        }
+      });
+      
+      lastFileSize = currentSize;
+    } else if (currentSize < lastFileSize) {
+      // El archivo fue rotado (truncado)
+      console.log("Archivo rotado, reiniciando posición...");
+      lastFileSize = 0;
+      lastFileBuffer = "";
+    }
+  } catch (error) {
+    console.error("Error en polling: " + error.message);
+  }
+}, 3000);
+
+console.log("Polling activo cada 3 segundos");
+
+// WebSocket: Enviar actualizaciones en tiempo real
+io.on("connection", (socket) => {
+  console.log("Cliente conectado");
+
+  // Enviar métricas iniciales
+  if (latestMetrics) {
+    socket.emit("metrics", latestMetrics);
+  }
+
+  socket.on("disconnect", () => {
+    console.log("Cliente desconectado");
+  });
+});
+
+server.listen(PORT, () => {
+  console.log("Dashboard de Suricata ejecutándose en http://localhost:" + PORT);
+  console.log("Archivo de logs: " + LOG_FILE);
+  
+  // Iniciar monitoreo del archivo eve.json
+  loadHistoricalAlerts();
+});

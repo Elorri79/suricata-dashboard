@@ -7,7 +7,7 @@ const { spawn } = require('child_process');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, { cors: { origin: "*", methods: ["GET", "POST"] } });
 
 const PORT = process.env.PORT || 3000;
 const LOG_FILE = process.env.SURICATA_LOG || '/mnt/suricata-logs/eve.json';
@@ -29,6 +29,15 @@ let metrics = {
 };
 
 // Colores para severity
+function emitMetrics() {
+  io.emit("metrics", {
+    ...metrics,
+    topSignatures: Object.entries(metrics.topSignatures).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([sig, count]) => ({ signature: sig, count })),
+    topSourceIPs: Object.entries(metrics.alertsBySourceIP).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([ip, count]) => ({ ip, count })),
+    topDestIPs: Object.entries(metrics.alertsByDestIP).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([ip, count]) => ({ ip, count }))
+  });
+}
+
 const severityColors = {
   critical: '#dc2626',
   high: '#ea580c',
@@ -264,6 +273,7 @@ function processAlert(line, emitWebSocket = true) {
     // Enviar alerta en tiempo real a todos los clientes conectados (solo si es nueva)
     if (emitWebSocket) {
       io.emit('newAlert', processedAlert);
+      emitMetrics();
       console.log(`Alerta: ${severity.toUpperCase()} - ${processedAlert.signature}`);
     }
     
@@ -384,14 +394,14 @@ function startPolling() {
     } catch (error) {
       console.error(`Error en polling: ${error.message}`);
     }
-  }, 3000);
+  }, 10000);
   
   console.log('Polling activo cada 3 segundos');
 }
 
 // WebSocket: Enviar actualizaciones en tiempo real
 io.on('connection', (socket) => {
-  console.log('Cliente conectado');
+  console.log('Cliente conectado - ENVIANDO'); emitMetrics(); socket.emit('metrics', {...metrics, topSignatures: Object.entries(metrics.topSignatures).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([sig, count]) => ({ signature: sig, count })), topSourceIPs: Object.entries(metrics.alertsBySourceIP).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([ip, count]) => ({ ip, count })), topDestIPs: Object.entries(metrics.alertsByDestIP).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([ip, count]) => ({ ip, count }))});
 
   // Enviar métricas iniciales
   socket.emit('metrics', {
