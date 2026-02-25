@@ -1,7 +1,7 @@
 // Suricata Dashboard - Main Application
 
 // Inicializar Socket.IO
-const socket = io({ reconnection: true, reconnectionAttempts: 10, reconnectionDelay: 1000 });
+const socket = io();
 
 // Referencias DOM
 const elements = {
@@ -122,7 +122,7 @@ function updateThreatLevel(data) {
   
   if (threat.class === 'critical' || threat.class === 'high') {
     elements.systemPulse?.classList.add('alert');
-    // disabled
+    // disabled - video fixed
     setTimeout(() => document.body.classList.remove('alert-flash'), 300);
   } else {
     elements.systemPulse?.classList.remove('alert');
@@ -556,7 +556,7 @@ function connectSocket() {
     elements.connectionStatus.parentElement.querySelector('.pulse').style.background = '#00ff88';
   });
 
-  socket.on('reconnect', () => { fetch('/api/metrics').then(r => r.json()).then(updateDashboard); });
+  
   socket.on('disconnect', () => {
     elements.connectionStatus.textContent = 'OFFLINE';
     elements.connectionStatus.style.color = '#ff0044';
@@ -884,7 +884,7 @@ function updateSpeechBubble(alert) {
   const severity = alert.severity || 'info';
   speechBubble.className = `speech-bubble compact ${severity}`;
 
-  // disabled
+  // disabled - video fixed
 }
 
 // Actualizar solo el color del borde del avatar según severidad
