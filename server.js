@@ -320,8 +320,12 @@ function loadHistoricalAlerts() {
   }
 }
 
-// Leer el archivo eve.json en tiempo real usando tail -f
-function startTailing() {
+// Leer el archivo eve.json en tiempo real usando polling
+// (tail -f no funciona con SSHFS porque no soporta inotify)
+let lastFileSize = 0;
+let lastFileBuffer = '';
+
+function startPolling() {
   console.log(`Monitoreando archivo: ${LOG_FILE}`);
   
   // Verificar si el archivo existe
@@ -334,27 +338,55 @@ function startTailing() {
   // Cargar alertas históricas primero
   loadHistoricalAlerts();
   
-  // Usar tail -f para leer nuevas líneas en tiempo real (desde ahora en adelante)
-  const tail = spawn('tail', ['-f', '-n', '0', LOG_FILE]);
+  // Guardar el tamaño actual para solo leer líneas nuevas
+  try {
+    const stats = fs.statSync(LOG_FILE);
+    lastFileSize = stats.size;
+    console.log(`Tamaño inicial del archivo: ${lastFileSize} bytes`);
+  } catch (e) {
+    console.error(`Error obteniendo tamaño del archivo: ${e.message}`);
+  }
   
-  tail.stdout.on('data', (data) => {
-    const lines = data.toString().split('\n');
-    lines.forEach(line => {
-      if (line.trim()) {
-        processAlert(line, true); // true = emitir eventos WebSocket
+  // Polling cada 3 segundos para nuevas líneas
+  setInterval(() => {
+    try {
+      const stats = fs.statSync(LOG_FILE);
+      const currentSize = stats.size;
+      
+      if (currentSize > lastFileSize) {
+        // Leer solo los bytes nuevos
+        const fd = fs.openSync(LOG_FILE, 'r');
+        const bytesToRead = currentSize - lastFileSize;
+        const buffer = Buffer.alloc(bytesToRead);
+        fs.readSync(fd, buffer, 0, bytesToRead, lastFileSize);
+        fs.closeSync(fd);
+        
+        // Combinar con buffer parcial anterior (línea incompleta)
+        const newData = lastFileBuffer + buffer.toString('utf8');
+        const lines = newData.split('\n');
+        
+        // La última línea puede estar incompleta, guardarla para la próxima lectura
+        lastFileBuffer = lines.pop() || '';
+        
+        lines.forEach(line => {
+          if (line.trim()) {
+            processAlert(line, true);
+          }
+        });
+        
+        lastFileSize = currentSize;
+      } else if (currentSize < lastFileSize) {
+        // El archivo fue rotado (truncado)
+        console.log('Archivo rotado, reiniciando posición...');
+        lastFileSize = 0;
+        lastFileBuffer = '';
       }
-    });
-  });
+    } catch (error) {
+      console.error(`Error en polling: ${error.message}`);
+    }
+  }, 3000);
   
-  tail.stderr.on('data', (data) => {
-    console.error(`Error en tail: ${data}`);
-  });
-  
-  tail.on('close', (code) => {
-    console.log(`tail process cerrado con código ${code}`);
-    // Reintentar después de 5 segundos
-    setTimeout(startTailing, 5000);
-  });
+  console.log('Polling activo cada 3 segundos');
 }
 
 // WebSocket: Enviar actualizaciones en tiempo real
@@ -388,5 +420,5 @@ server.listen(PORT, () => {
   console.log(`Archivo de logs: ${LOG_FILE}`);
   
   // Iniciar monitoreo del archivo eve.json
-  startTailing();
+  startPolling();
 });
