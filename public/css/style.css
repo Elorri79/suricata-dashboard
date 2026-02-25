@@ -675,24 +675,41 @@ body::after {
    ================================================ */
 .charts-row {
   display: grid;
-  grid-template-columns: 1.8fr 1fr 1fr;
+  grid-template-columns: 2.5fr 0.7fr 0.7fr;
+  grid-template-rows: auto auto;
   gap: 12px;
   align-items: stretch;
 }
 
-.timeline-row {
-  min-height: 190px;
+.android-panel-compact {
+  grid-row: span 2;
+}
+
+.chart-card:not(.android-panel-compact) {
+  min-height: 90px;
+  max-height: 110px;
 }
 
 .chart-card {
   background: var(--grad-panel);
-  padding: 18px;
+  padding: 12px;
   position: relative;
   border: 1px solid rgba(0, 229, 255, 0.12);
   clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
   display: flex;
   flex-direction: column;
   transition: border-color 0.3s;
+}
+
+.timeline-row {
+  grid-column: 2 / -1;
+  grid-row: 2;
+  min-height: 70px;
+}
+
+.chart-card.full-width {
+  min-height: 70px;
+  max-height: 90px;
 }
 
 .chart-card:hover {
@@ -1173,6 +1190,123 @@ body::after {
   padding: 0;
   max-height: 320px;
   overflow: auto;
+}
+
+/* Filters */
+.filter-select,
+.filter-input {
+  padding: 7px 12px;
+  background: var(--bg-slot);
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  color: var(--neon-cyan);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.73rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.filter-select:focus,
+.filter-input:focus {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.2);
+}
+
+.filter-select option {
+  background: var(--bg-deep);
+  color: var(--text-primary);
+}
+
+/* Small buttons */
+.btn-small {
+  padding: 7px 14px;
+  background: var(--bg-slot);
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  color: var(--neon-cyan);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: all 0.2s ease;
+}
+
+.btn-small:hover {
+  background: rgba(0, 229, 255, 0.1);
+  border-color: var(--neon-cyan);
+  box-shadow: var(--glow-cyan);
+}
+
+.btn-small.secondary {
+  background: transparent;
+  border-color: rgba(0, 229, 255, 0.2);
+  color: var(--text-secondary);
+}
+
+.btn-small.secondary:hover {
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+}
+
+/* Header Controls (sound, fullscreen) */
+.header-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.control-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-slot);
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  color: var(--neon-cyan);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 2px;
+}
+
+.control-btn:hover {
+  background: rgba(0, 229, 255, 0.1);
+  border-color: var(--neon-cyan);
+  box-shadow: var(--glow-cyan);
+}
+
+.control-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Leaflet Map Controls */
+.leaflet-control-zoom {
+  border: 1px solid rgba(0, 229, 255, 0.3) !important;
+  border-radius: 2px !important;
+  overflow: hidden;
+}
+
+.leaflet-control-zoom a {
+  background: var(--bg-slot) !important;
+  color: var(--neon-cyan) !important;
+  border-color: rgba(0, 229, 255, 0.2) !important;
+  width: 28px !important;
+  height: 28px !important;
+  line-height: 28px !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background: rgba(0, 229, 255, 0.1) !important;
+  border-color: var(--neon-cyan) !important;
+}
+
+/* Geo Map Container */
+.geo-section .panel-content {
+  padding: 0;
+  background: var(--bg-deep);
+}
+
+#geo-map {
+  background: var(--bg-deep) !important;
 }
 
 /* Scrollbar */

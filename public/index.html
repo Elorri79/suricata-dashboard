@@ -1,37 +1,29 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description"
-    content="Suricata IDS/IPS Real-Time Security Dashboard - Monitor network threats and intrusion detection events">
+  <meta name="description" content="Suricata IDS/IPS Real-Time Security Dashboard">
+  <meta name="theme-color" content="#020507">
   <title>SURICATA IDS // COMMAND DECK</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◈</text></svg>">
   <link rel="stylesheet" href="/css/style.css">
-  <link rel="icon"
-    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◈</text></svg>">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
-
 <body>
-  <!-- Background Grid Animation -->
   <div class="grid-scan"></div>
-  
-  <!-- Matrix Rain Background -->
   <canvas id="matrix-bg" class="matrix-bg"></canvas>
   
-  <!-- Radar Animation -->
   <div class="radar-container">
     <div class="radar">
       <div class="radar-sweep"></div>
-      <div class="radar-rings">
-        <span></span><span></span><span></span><span></span>
-      </div>
+      <div class="radar-rings"><span></span><span></span><span></span><span></span></div>
       <div class="radar-center"></div>
     </div>
   </div>
 
   <div class="dashboard">
-    <!-- Header - Command Deck -->
     <header class="header">
       <div class="header-left">
         <h1 class="glitch" data-text="SURICATA IDS">
@@ -44,29 +36,40 @@
         </h1>
         <span class="status-indicator">
           <span class="pulse" id="system-pulse"></span>
-          <span id="connection-status">ONLINE</span>
+          <span id="connection-status">CONNECTING...</span>
         </span>
         <div class="header-meta">
           <span class="meta-label">BUILD</span>
-          <span class="meta-value">2.5.0</span>
+          <span class="meta-value">3.0.0</span>
         </div>
       </div>
       <div class="header-center">
         <span class="time" id="current-time">--:--:--</span>
       </div>
       
-      <!-- Threat Level Bar -->
       <div class="threat-level-container">
         <div class="threat-label">THREAT LEVEL</div>
         <div class="threat-bar">
           <div class="threat-fill" id="threat-fill"></div>
-          <div class="threat-markers">
-            <span>0</span><span>25</span><span>50</span><span>75</span><span>100</span>
-          </div>
+          <div class="threat-markers"><span>0</span><span>25</span><span>50</span><span>75</span><span>100</span></div>
         </div>
         <div class="threat-value" id="threat-value">LOW</div>
       </div>
+      
       <div class="header-right">
+        <div class="header-controls">
+          <button class="control-btn" id="sound-toggle" title="Toggle sound alerts">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 5L6 9H2v6h4l5 4V5z"/>
+              <path id="sound-waves" d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/>
+            </svg>
+          </button>
+          <button class="control-btn" id="fullscreen-toggle" title="Fullscreen mode">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>
+            </svg>
+          </button>
+        </div>
         <div class="kpi-pill">
           <span class="kpi-val" id="aps-value">0.0</span>
           <span class="kpi-lbl">A/S</span>
@@ -75,7 +78,7 @@
           <span class="kpi-val" id="alerts-per-min">0</span>
           <span class="kpi-lbl">A/MIN</span>
         </div>
-        <button class="btn" id="reset-btn" onclick="resetMetrics()">
+        <button class="btn" id="reset-btn">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
             <path d="M3 3v5h5" />
@@ -85,89 +88,49 @@
       </div>
     </header>
 
-    <!-- Stats Grid - Module Display -->
     <section class="stats-grid" aria-label="Alert counters">
-      <div class="stat-card total" id="card-total">
-        <div class="stat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M12 2L2 7l10 5 10-5-10-5z" />
-            <path d="M2 17l10 5 10-5" />
-            <path d="M2 12l10 5 10-5" />
-          </svg>
-        </div>
+      <div class="stat-card total skeleton" id="card-total">
+        <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" /></svg></div>
         <div class="stat-content">
           <span class="stat-value" id="total-alerts">0</span>
           <span class="stat-label">Total Events</span>
         </div>
         <div class="stat-trend">ALL</div>
       </div>
-
-      <div class="stat-card critical" id="card-critical">
-        <div class="stat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-            <line x1="12" y1="9" x2="12" y2="13" />
-            <line x1="12" y1="17" x2="12.01" y2="17" />
-          </svg>
-        </div>
+      <div class="stat-card critical skeleton" id="card-critical">
+        <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg></div>
         <div class="stat-content">
           <span class="stat-value" id="critical-count">0</span>
           <span class="stat-label">Critical</span>
         </div>
         <div class="stat-trend sev-1">SEV·1</div>
       </div>
-
-      <div class="stat-card high" id="card-high">
-        <div class="stat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <polygon
-              points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-          </svg>
-        </div>
+      <div class="stat-card high skeleton" id="card-high">
+        <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg></div>
         <div class="stat-content">
           <span class="stat-value" id="high-count">0</span>
           <span class="stat-label">High</span>
         </div>
         <div class="stat-trend sev-2">SEV·2</div>
       </div>
-
-      <div class="stat-card medium" id="card-medium">
-        <div class="stat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
-          </svg>
-        </div>
+      <div class="stat-card medium skeleton" id="card-medium">
+        <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg></div>
         <div class="stat-content">
           <span class="stat-value" id="medium-count">0</span>
           <span class="stat-label">Medium</span>
         </div>
         <div class="stat-trend sev-3">SEV·3</div>
       </div>
-
-      <div class="stat-card low" id="card-low">
-        <div class="stat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-            <polyline points="22 4 12 14.01 9 11.01" />
-          </svg>
-        </div>
+      <div class="stat-card low skeleton" id="card-low">
+        <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg></div>
         <div class="stat-content">
           <span class="stat-value" id="low-count">0</span>
           <span class="stat-label">Low</span>
         </div>
         <div class="stat-trend sev-4">SEV·4</div>
       </div>
-
-      <div class="stat-card info" id="card-info">
-        <div class="stat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="16" x2="12" y2="12" />
-            <line x1="12" y1="8" x2="12.01" y2="8" />
-          </svg>
-        </div>
+      <div class="stat-card info skeleton" id="card-info">
+        <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg></div>
         <div class="stat-content">
           <span class="stat-value" id="info-count">0</span>
           <span class="stat-label">Info</span>
@@ -176,9 +139,7 @@
       </div>
     </section>
 
-    <!-- Charts Row - Tactical Display -->
     <section class="charts-row" aria-label="Charts">
-      <!-- AI CO-PILOT -->
       <div class="chart-card android-panel-compact">
         <h3>AI CO-PILOT</h3>
         <div class="android-compact-layout">
@@ -205,85 +166,90 @@
           </div>
         </div>
       </div>
-
-      <!-- Threat Distribution -->
       <div class="chart-card">
         <h3>Threat Distribution</h3>
-        <div class="chart-container">
-          <canvas id="severity-chart"></canvas>
-        </div>
+        <div class="chart-container"><canvas id="severity-chart"></canvas></div>
       </div>
-
-      <!-- Protocol Distribution -->
       <div class="chart-card">
         <h3>Protocol Matrix</h3>
-        <div class="chart-container">
-          <canvas id="protocol-chart"></canvas>
-        </div>
+        <div class="chart-container"><canvas id="protocol-chart"></canvas></div>
       </div>
-    </section>
-
-    <!-- Timeline Row -->
-    <section class="timeline-row" aria-label="Activity timeline">
-      <div class="chart-card full-width">
+      <div class="chart-card timeline-row" style="grid-column: 2 / -1;">
         <h3>Activity Timeline <span class="h3-sub">[24H]</span></h3>
-        <div class="chart-container timeline-container">
-          <canvas id="timeline-chart"></canvas>
-        </div>
+        <div class="chart-container timeline-container"><canvas id="timeline-chart"></canvas></div>
       </div>
     </section>
 
-    <!-- Bottom Row - Data Slots -->
     <section class="bottom-row" aria-label="Top lists">
       <div class="panel">
-        <div class="panel-header">
-          <h3>Top Signatures</h3>
-          <span class="panel-count" id="sig-count"></span>
-        </div>
+        <div class="panel-header"><h3>Top Signatures</h3><span class="panel-count" id="sig-count"></span></div>
         <div class="panel-content">
-          <ul class="signature-list" id="signature-list">
-            <li class="empty-state">Initializing...</li>
-          </ul>
+          <ul class="signature-list" id="signature-list"><li class="skeleton-item"></li><li class="skeleton-item"></li><li class="skeleton-item"></li></ul>
         </div>
       </div>
-
       <div class="panel">
-        <div class="panel-header">
-          <h3>Source IPs</h3>
-        </div>
+        <div class="panel-header"><h3>Source IPs</h3></div>
         <div class="panel-content">
-          <ul class="ip-list" id="source-ip-list">
-            <li class="empty-state">Initializing...</li>
-          </ul>
+          <ul class="ip-list" id="source-ip-list"><li class="skeleton-item"></li><li class="skeleton-item"></li><li class="skeleton-item"></li></ul>
         </div>
       </div>
-
       <div class="panel">
-        <div class="panel-header">
-          <h3>Target IPs</h3>
-        </div>
+        <div class="panel-header"><h3>Target IPs</h3></div>
         <div class="panel-content">
-          <ul class="ip-list" id="dest-ip-list">
-            <li class="empty-state">Initializing...</li>
-          </ul>
+          <ul class="ip-list" id="dest-ip-list"><li class="skeleton-item"></li><li class="skeleton-item"></li><li class="skeleton-item"></li></ul>
         </div>
       </div>
     </section>
 
-    <!-- Recent Alerts - Threat Log -->
+    <section class="geo-section" aria-label="Attack map">
+      <div class="panel full-width">
+        <div class="panel-header">
+          <h3>Attack Origin Map</h3>
+          <span class="panel-count" id="geo-count">0 sources</span>
+        </div>
+        <div class="panel-content" style="padding: 0;">
+          <div id="geo-map" style="height: 280px; width: 100%;"></div>
+        </div>
+      </div>
+    </section>
+
     <section class="alerts-section" aria-label="Threat log">
       <div class="panel full-width">
         <div class="panel-header">
           <h3>Threat Log</h3>
           <div class="panel-actions">
+            <div class="filters-row">
+              <select id="filter-severity" class="filter-select">
+                <option value="">All Severities</option>
+                <option value="critical">Critical</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+                <option value="info">Info</option>
+              </select>
+              <select id="filter-protocol" class="filter-select">
+                <option value="">All Protocols</option>
+                <option value="TCP">TCP</option>
+                <option value="UDP">UDP</option>
+                <option value="HTTP">HTTP</option>
+                <option value="HTTPS">HTTPS</option>
+                <option value="ICMP">ICMP</option>
+                <option value="DNS">DNS</option>
+              </select>
+              <input type="text" id="filter-source-ip" class="filter-input" placeholder="Source IP...">
+              <input type="text" id="filter-dest-ip" class="filter-input" placeholder="Dest IP...">
+              <input type="datetime-local" id="filter-from" class="filter-input" title="From date">
+              <input type="datetime-local" id="filter-to" class="filter-input" title="To date">
+              <button class="btn-small" id="apply-filters">Apply</button>
+              <button class="btn-small secondary" id="clear-filters">Clear</button>
+            </div>
             <div class="search-wrapper">
-              <svg class="search-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                stroke-width="2.5">
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              <input type="text" class="search-input" id="alert-search"
-                placeholder="Filter by IP, signature, severity...">
+              <svg class="search-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+              <input type="text" class="search-input" id="alert-search" placeholder="Quick search...">
+            </div>
+            <div class="export-buttons">
+              <button class="btn-small" id="export-csv">Export CSV</button>
+              <button class="btn-small secondary" id="export-json">Export JSON</button>
             </div>
           </div>
         </div>
@@ -302,29 +268,30 @@
               </tr>
             </thead>
             <tbody id="alerts-table-body">
-              <tr class="empty-state">
-                <td colspan="8">Scanning...</td>
-              </tr>
+              <tr class="skeleton-row"><td colspan="8"><div class="skeleton-text"></div></td></tr>
+              <tr class="skeleton-row"><td colspan="8"><div class="skeleton-text"></div></td></tr>
+              <tr class="skeleton-row"><td colspan="8"><div class="skeleton-text"></div></td></tr>
             </tbody>
           </table>
         </div>
       </div>
     </section>
 
-    <!-- Footer -->
     <div class="footer-decor">
-      <span>SYS_BUILD: 2.4.1</span>
+      <span>SYS_BUILD: 3.0.0</span>
       <span>SECURE_CHANNEL: ESTABLISHED</span>
       <span>IDS_MODE: ACTIVE MONITORING</span>
     </div>
   </div>
 
-  <!-- Toast Container -->
   <div class="toast-container" id="toast-container" aria-live="polite"></div>
+  
+  <audio id="alert-sound-critical" preload="auto" style="display:none;"></audio>
+  <audio id="alert-sound-high" preload="auto" style="display:none;"></audio>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/chart.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/app.js"></script>
 </body>
-
 </html>
