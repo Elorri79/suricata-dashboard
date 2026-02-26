@@ -1924,6 +1924,17 @@ body::after {
   .kpi-pill {
     display: none;
   }
+
+  .radar-container,
+  .geo-section,
+  .alerts-section {
+    display: none !important;
+  }
+
+  .filters-row,
+  .export-buttons {
+    display: none !important;
+  }
 }
 
 @media (max-width: 480px) {
