@@ -1,4 +1,4 @@
-# Suricata Dashboard - AI Monitor Edition v2.5.0
+# Suricata Dashboard - AI Monitor Edition v3.0.0
 
 A real-time cyberpunk-styled web dashboard for monitoring and visualizing Suricata IDS/IPS alerts with an interactive AI co-pilot named SURI.
 
@@ -22,12 +22,16 @@ Suricata Dashboard is a lightweight Node.js application that provides real-time 
   - Top destination IPs (targets)
 - **Threat Level Bar**: Dynamic threat level indicator (LOW → CRITICAL)
 - **Threat Radar**: Animated radar display showing activity
-- **Alert Browser**: Recent alerts table with search functionality
+- **Attack Origin Map**: Interactive world map showing attack sources with geographic location
+- **Alert Browser**: Advanced table with filtering and search
+- **Export Data**: Export alerts to CSV or JSON format
 - **Toast Notifications**: Desktop notifications for new critical alerts
+- **Audio Alerts**: Sound notifications for critical and high severity alerts
+- **PWA Support**: Installable as a standalone web app
 - **RESTful API**: Programmatic access to metrics and alerts
 - **Responsive Design**: Adapts to any screen size
 
-### Visual Effects (NEW v2.5.0)
+### Visual Effects (v3.0.0)
 
 - **Radar Animation**: Rotating radar scanner in corner
 - **Glitch Effect**: Cyberpunk glitch on title
@@ -37,6 +41,16 @@ Suricata Dashboard is a lightweight Node.js application that provides real-time 
 - **Parallax Avatar**: 3D parallax effect on mouse movement
 - **Alert Flash**: Dramatic red flash on critical alerts
 - **System Pulse**: Heartbeat pulse indicator
+
+### New Features (v3.0.0)
+
+- **Attack Origin Map**: Interactive Leaflet map showing geographic location of attack sources
+- **Advanced Filtering**: Filter alerts by severity, protocol, source/destination IP, and date range
+- **Data Export**: Export filtered alerts to CSV or JSON files
+- **Audio Alerts**: Sound notifications for critical and high severity threats
+- **PWA Installation**: Install as standalone app on desktop and mobile
+- **Sound Toggle**: Mute/unmute audio alerts
+- **Fullscreen Mode**: Toggle fullscreen display
 
 ## Quick Start
 
@@ -125,11 +139,23 @@ The application exposes a RESTful API:
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/metrics` | GET | Get current metrics and statistics |
-| `/api/alerts` | GET | Get recent alerts (supports `?limit=50`) |
+| `/api/alerts` | GET | Get recent alerts (supports `?limit=50&severity=critical&protocol=TCP`) |
 | `/api/test/start` | GET | Start test alert injection |
 | `/api/test/stop` | GET | Stop test alert injection |
 | `/api/test/:severity` | GET | Inject specific severity alert |
 | `/api/reset` | POST | Reset all metrics to zero |
+
+### Filter Parameters for `/api/alerts`
+
+| Parameter | Example | Description |
+|-----------|---------|-------------|
+| `limit` | `?limit=100` | Number of alerts to return |
+| `severity` | `?severity=critical` | Filter by severity |
+| `protocol` | `?protocol=TCP` | Filter by protocol |
+| `source_ip` | `?source_ip=192.168.1.1` | Filter by source IP |
+| `dest_ip` | `?dest_ip=10.0.0.1` | Filter by destination IP |
+| `from` | `?from=2024-01-01T00:00:00` | Filter alerts from date |
+| `to` | `?to=2024-01-02T00:00:00` | Filter alerts to date |
 
 ## Integration with Suricata
 
@@ -167,6 +193,7 @@ suricata-dashboard/
 ├── server.js              # Main server application
 ├── public/
 │   ├── index.html        # Main dashboard UI
+│   ├── manifest.json    # PWA manifest
 │   ├── css/
 │   │   └── style.css    # Cyberpunk dashboard styles
 │   ├── js/
@@ -177,6 +204,7 @@ suricata-dashboard/
 │       ├── medium.mp4   # SURI medium alert video
 │       └── critical.mp4 # SURI critical alert video
 ├── logs/                # Default log directory
+├── data/                # Alert data storage
 ├── package.json
 └── README.md
 ```

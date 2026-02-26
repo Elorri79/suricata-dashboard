@@ -295,14 +295,32 @@ function initGeoMap() {
       center: [30, 0],
       zoom: 2,
       zoomControl: true,
-      attributionControl: false
+      attributionControl: false,
+      minZoom: 2,
+      maxZoom: 6,
+      worldCopyJump: false,
+      crs: L.CRS.EPSG3857,
+      maxBounds: [[-85, -180], [85, 180]],
+      maxBoundsViscosity: 1.0
     });
     
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
       maxZoom: 19,
       minZoom: 2,
-      noWrap: true
+      noWrap: true,
+      bounds: [[-85, -180], [85, 180]],
+      reuseTiles: true,
+      errorTileUrl: '',
+      subdomains: 'abc'
     }).addTo(geoMap);
+
+    geoMap.on('moveend', () => {
+      const bounds = geoMap.getBounds();
+      const validBounds = L.latLngBounds([[-85, -180], [85, 180]]);
+      if (!validBounds.contains(bounds.getNorthWest()) || !validBounds.contains(bounds.getSouthEast())) {
+        geoMap.setView([30, 0], 2);
+      }
+    });
     
     setTimeout(() => geoMap.invalidateSize(), 100);
   } catch (e) {
