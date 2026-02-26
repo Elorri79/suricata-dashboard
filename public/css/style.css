@@ -1935,6 +1935,10 @@ body::after {
   .export-buttons {
     display: none !important;
   }
+
+  .chart-card:not(.android-panel-compact) {
+    display: none !important;
+  }
 }
 
 @media (max-width: 480px) {
